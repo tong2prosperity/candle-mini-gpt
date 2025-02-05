@@ -67,7 +67,7 @@ impl Head {
         let mask = self.tril.narrow(0, 0, seq_len)?.narrow(1, 0, seq_len)?;
         let neg_inf = f32::NEG_INFINITY;
         let mask_f32 = mask.eq(0)?.to_dtype(DType::F32)?;
-        mask_f32.broadcast_mul(rhs)
+        mask_f32.broadcast_mul(neg_inf);
         let wei = ((&wei * &(1.0 - &mask_f32)?)? + (&mask_f32 * neg_inf)?)?;
 
         // Apply softmax and dropout
