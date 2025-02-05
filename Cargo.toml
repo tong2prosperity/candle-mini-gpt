@@ -18,6 +18,7 @@ path = "src/bin/tokenizer_train.rs"
 
 [dependencies]
 candle-core = { version = "0.8.2", path = "candle/candle-core", features = ["metal"] }
+candle-nn = { version = "0.8.2", path = "candle/candle-nn", features = ["metal"] }
 walkdir = "2.5"
 
 tokenizers = "0.21"

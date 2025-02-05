@@ -122,11 +122,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "candle-nn"
+version = "0.8.2"
+dependencies = [
+ "candle-core",
+ "candle-metal-kernels",
+ "half",
+ "metal 0.27.0",
+ "num-traits",
+ "rayon",
+ "safetensors",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "candle_transformer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "candle-core",
+ "candle-nn",
  "opencc-rust",
  "tokenizers",
  "walkdir",

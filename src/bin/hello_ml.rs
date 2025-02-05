@@ -14,3 +14,19 @@ fn main() -> Result<()> {
     println!("digit: {:?}", digit);
     Ok(())
 }
+
+
+#[cfg(test)]
+mod tests {
+    use tokenizers::{models::bpe::BPE, Tokenizer};
+
+    use super::*;
+
+    #[test]
+    fn test_tokenizer() {
+        let tokenizer = Tokenizer::from_file("leader_bpe_tokenizer.json").unwrap();
+        let text = "我爱你";
+        let tokens = tokenizer.encode(text, true).unwrap();
+        println!("tokens: {:?}", tokens);
+    }
+}
