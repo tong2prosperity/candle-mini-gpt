@@ -1,22 +1,42 @@
-
+use super::{feed_forward::FeedForward, multi_head::MultiHeadAttention, *};
 use candle_core::{Device, DType, Tensor};
+use candle_nn::{layer_norm, LayerNorm, LayerNormConfig};
 
-pub struct Transformer {
-    pub model: String,
-    pub tokenizer: String,
-    pub WQ: Tensor,
-    pub WK: Tensor,
-    pub WV: Tensor,
-    pub WO: Tensor,
+pub struct Block {
+    self_attn: MultiHeadAttention,
+    feed_forward: FeedForward,
+    ln1: LayerNorm,
+    ln2: LayerNorm,
+    cfg: Config,
 }
 
-impl Transformer {
-    pub fn new(model: String, tokenizer: String) -> Self {
-        let device = Device::new_metal(0).unwrap();
-        let WQ = Tensor::new(&[1024, 1024], &device).unwrap();
-        let WK = Tensor::new(&[1024, 1024], &device).unwrap();
-        let WV = Tensor::new(&[1024, 1024], &device).unwrap();
-        let WO = Tensor::new(&[1024, 1024], &device).unwrap();
-        Self { model, tokenizer, WQ, WK, WV, WO }
+impl Block {
+    pub fn new(vb: VarBuilder, cfg: &Config) -> Result<Self> {
+        let self_attn = MultiHeadAttention::new(vb.clone(), cfg)?;
+        let feed_forward = FeedForward::new(vb.clone(), cfg)?;
+        let ln1 = layer_norm(
+            cfg.n_embd,
+            LayerNormConfig::from(1e-5),
+            vb.pp("ln1")  
+        )?;
+        let ln2 = layer_norm(
+            cfg.n_embd,
+            LayerNormConfig::from(1e-5),
+            vb.pp("ln2")  
+        )?;
+
+        Ok(Self { self_attn, feed_forward, ln1, ln2, cfg: cfg.clone() })
+    }
+}
+
+impl Module for Block {
+    fn forward(&self, x: &Tensor) -> Result<Tensor> {
+        let rx = self.ln1.forward(x)?;
+        let rx = self.self_attn.forward(&rx)?;
+        let rx = rx.add(x)?;
+        let rx = self.ln2.forward(&rx)?;
+        let rx = self.feed_forward.forward(&rx)?;
+        let rx = rx.add(x)?;
+        Ok(rx)
     }
 }

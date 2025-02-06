@@ -23,15 +23,15 @@ impl Head {
 
         // Initialize the linear layers without bias
         let key = Linear::new(
-            vb.get((cfg.n_embd, cfg.n_head), "key")?,
+            vb.get((cfg.n_embd, head_size), "key")?,
             None
         );
         let query = Linear::new(
-            vb.get((cfg.n_embd, cfg.n_head), "query")?,
+            vb.get((cfg.n_embd, head_size), "query")?,
             None
         );
         let value = Linear::new(
-            vb.get((cfg.n_embd, cfg.n_head), "value")?,
+            vb.get((cfg.n_embd, head_size), "value")?,
             None
         );
         

@@ -1,4 +1,4 @@
-use candle_core::{Module, Result, Tensor};
+use candle_core::{Module, Result, Tensor, D};
 use candle_nn::{Linear, VarBuilder};
 
 use super::head::Head;
@@ -14,7 +14,7 @@ pub struct MultiHeadAttention {
 impl MultiHeadAttention {
     pub fn new(vb: VarBuilder, cfg: &Config) -> Result<Self> {
         let head_size = cfg.n_embd / cfg.n_head;
-        
+
         // Create multiple heads
         let mut heads = Vec::with_capacity(cfg.n_head);
         for i in 0..cfg.n_head {
@@ -36,7 +36,16 @@ impl MultiHeadAttention {
         })
     }
 
-    pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
+    pub fn set_training(&mut self, training: bool) {
+        self.training = training;
+        for head in &mut self.heads {
+            head.set_training(training);
+        }
+    }
+}
+
+impl Module for MultiHeadAttention {
+    fn forward(&self, x: &Tensor) -> Result<Tensor> {
         // Apply each head and collect results
         let mut head_outputs = Vec::with_capacity(self.heads.len());
         for head in &self.heads {
@@ -44,8 +53,8 @@ impl MultiHeadAttention {
         }
 
         // Concatenate all head outputs along the last dimension
-        let concat = Tensor::cat(&head_outputs, 2)?;
-        
+        let concat = Tensor::cat(&head_outputs, D::Minus1)?;
+
         // Apply final projection and dropout
         let out = self.proj.forward(&concat)?;
         let out = if self.training {
@@ -55,12 +64,5 @@ impl MultiHeadAttention {
         };
 
         Ok(out)
-    }
-
-    pub fn set_training(&mut self, training: bool) {
-        self.training = training;
-        for head in &mut self.heads {
-            head.set_training(training);
-        }
     }
 }
