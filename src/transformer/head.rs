@@ -1,4 +1,4 @@
-use candle_core::{DType, Device, Module, Result, Tensor};
+use candle_core::{DType, Device, IndexOp, Module, Result, Shape, Tensor, D};
 use candle_nn::{Linear, VarBuilder};
 
 use super::Config;
@@ -11,6 +11,7 @@ pub struct Head {
     tril: Tensor, // lower triangular mask
     dropout_p: f64,
     training: bool,
+    neg_inf: Tensor,
 }
 
 impl Head {
@@ -41,6 +42,8 @@ impl Head {
             vb.device()
         )?;
 
+        let neg_inf = Tensor::try_from(f32::NEG_INFINITY)?.to_device(vb.device())?;
+
         Ok(Self {
             key,
             query,
@@ -49,42 +52,41 @@ impl Head {
             tril,
             dropout_p: cfg.dropout as f64,
             training: false,
+            neg_inf,
         })
-    }
-
-    pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
-        let (b_sz, seq_len, _n_embd) = x.dims3()?;
-        
-        // Get key, query and value projections
-        let k = self.key.forward(x)?;
-        let q = self.query.forward(x)?;
-        let v = self.value.forward(x)?;
-
-        // Compute attention scores
-        let wei = ((q.matmul(&k.transpose(1, 2)?))? * self.scale)?;
-
-        // Apply causal mask
-        let mask = self.tril.narrow(0, 0, seq_len)?.narrow(1, 0, seq_len)?;
-        let neg_inf = f32::NEG_INFINITY;
-        let mask_f32 = mask.eq(0)?.to_dtype(DType::F32)?;
-        mask_f32.broadcast_mul(neg_inf);
-        let wei = ((&wei * &(1.0 - &mask_f32)?)? + (&mask_f32 * neg_inf)?)?;
-
-        // Apply softmax and dropout
-        let wei = candle_nn::ops::softmax(&wei, -1)?;
-        let wei = if self.training {
-            candle_nn::ops::dropout(&wei, self.dropout_p as f32)?
-        } else {
-            wei
-        };
-
-        // Compute output
-        let output = wei.matmul(&v)?;
-        
-        Ok(output)
     }
 
     pub fn set_training(&mut self, training: bool) {
         self.training = training;
     }
 }
+
+impl Module for Head {
+    fn forward(&self, x: &Tensor) -> Result<Tensor> {
+        let (_, seq_len, n_embed) = x.dims3()?;
+        
+        // Get key, query and value projections
+        let k = self.key.forward(x)?;
+        let q = self.query.forward(x)?;
+        let v = self.value.forward(x)?;
+
+        
+        let mut weight = ((q.matmul(&k.transpose(D::Minus2, D::Minus1)?))? * self.scale)?;
+
+        // Apply causal mask
+        let masked_weight = self.tril.i((..seq_len, ..n_embed))?.broadcast_as(Shape::from(weight.shape()))?
+        .where_cond(&weight, &self.neg_inf.broadcast_as(Shape::from(weight.shape()))?)?;
+
+        
+        // Apply softmax and dropout
+        weight = candle_nn::ops::softmax(&masked_weight, D::Minus1)?;
+        weight = candle_nn::ops::dropout(&weight, self.dropout_p as f32)?;
+
+
+        // Compute output
+        let v = self.value.forward(&x)?;
+        let output = weight.matmul(&v)?;
+        Ok(output)
+    }
+}
+
