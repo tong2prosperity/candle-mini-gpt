@@ -55,6 +55,7 @@ pub struct GPTModel {
     layer_norm: LayerNorm,
     lm_head: Linear,
     cfg: Config,
+    var_map: VarMap,
 }
 
 impl GPTModel {
@@ -77,20 +78,31 @@ impl GPTModel {
             blocks,
             layer_norm: ln_f,
             cfg: cfg.clone(),
+            var_map,
             lm_head,
         })
     }
 
-    // pub fn train(&self, dataset: &mut Dataset, num_epochs: usize, batch_size: usize) -> Result<()> {
-    //     let mut optimizer = AdamW::new(self.var_map.all_vars(), ParamsAdamW::default())?;
+    pub fn train(&self, dataset: &mut Dataset, num_epochs: usize, batch_size: usize) -> Result<()> {
+        let mut optimizer = AdamW::new(self.var_map.all_vars(), ParamsAdamW::default())?;
 
-    //     for epoch in 0..num_epochs {
-    //         let (training_inputs, training_targets) =
-    //             dataset.random_training_batch(self.block_size, batch_size)?;
-    //     }
+        for epoch in 0..num_epochs {
+            let (training_inputs, training_targets) =
+                dataset.random_training_batch(self.cfg.block_size, batch_size)?;
 
-    //     Ok(())
-    // }
+            let logits = self.forward(&training_inputs)?;
+            let (batch_size, context_size, embedding_size) = logits.shape().dims3()?;
+            let logits = logits.reshape((batch_size * context_size, embedding_size))?;
+            let targets = training_targets.reshape((batch_size * context_size,))?;
+            let loss = cross_entropy(&logits, &targets)?;
+
+            optimizer.backward_step(&loss)?;
+
+            println!("Epoch {} Training loss: {}", epoch, loss);
+        }
+
+        Ok(())
+    }
 
     // fn generate(&self, x: &Tensor, max_new_tokens: usize) -> Result<Tensor> {
     //     let mut x = x.clone();
