@@ -1,10 +1,10 @@
 [package]
-name = "candle_transformer"
+name = "candle-mini-gpt"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "candle_transformer"
+name = "candle_mini_gpt"
 
 [toolchain]
 channel = "nightly"
@@ -16,12 +16,21 @@ path = "src/bin/hello_ml.rs"
 name = "tokenizer_train"
 path = "src/bin/tokenizer_train.rs"
 
+[[bin]]
+name = "trainer"
+path = "src/bin/trainer.rs"
+
 [dependencies]
-candle-core = { version = "0.8.2", path = "candle/candle-core", features = ["metal"] }
-candle-nn = { version = "0.8.2", path = "candle/candle-nn", features = ["metal"] }
+candle-core = { version = "0.8.2", path = "candle/candle-core", features = [
+    "metal",
+] }
+candle-nn = { version = "0.8.2", path = "candle/candle-nn", features = [
+    "metal",
+] }
 walkdir = "2.5"
 
 tokenizers = "0.21"
 
 anyhow = "1.0"
 opencc-rust = "1.1.19"
+rand = "0.9"
