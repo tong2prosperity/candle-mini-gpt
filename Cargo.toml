@@ -18,15 +18,13 @@ path = "src/bin/tokenizer_train.rs"
 
 [[bin]]
 name = "trainer"
-path = "src/bin/trainer.rs"
+path = "src/bin/model_trainer.rs"
 
 [dependencies]
-candle-core = { version = "0.8.2", path = "candle/candle-core", features = [
-    "metal",
-] }
-candle-nn = { version = "0.8.2", path = "candle/candle-nn", features = [
-    "metal",
-] }
+candle-core = { version = "0.8.2", path = "candle/candle-core" , features = ["metal"]}
+candle-nn = { version = "0.8.2", path = "candle/candle-nn" , features = ["metal"]}
+candle-transformers = { version = "0.8.2", path = "candle/candle-transformers" , features = ["metal"]}
+
 walkdir = "2.5"
 
 tokenizers = "0.21"
@@ -34,3 +32,12 @@ tokenizers = "0.21"
 anyhow = "1.0"
 opencc-rust = "1.1.19"
 rand = "0.9"
+
+
+log = "0.4"
+env_logger = "0.11"
+
+[features]
+default = []
+cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
+metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]

@@ -15,32 +15,14 @@ pub struct Head {
 }
 
 impl Head {
-    pub fn new(
-        vb: VarBuilder,
-        cfg: &Config,
-        head_size: usize,
-    ) -> Result<Self> {
-
+    pub fn new(vb: VarBuilder, cfg: &Config, head_size: usize) -> Result<Self> {
         // Initialize the linear layers without bias
-        let key = Linear::new(
-            vb.get((cfg.n_embd, head_size), "key")?,
-            None
-        );
-        let query = Linear::new(
-            vb.get((cfg.n_embd, head_size), "query")?,
-            None
-        );
-        let value = Linear::new(
-            vb.get((cfg.n_embd, head_size), "value")?,
-            None
-        );
-        
+        let key = Linear::new(vb.get((cfg.n_embd, head_size), "key")?, None);
+        let query = Linear::new(vb.get((cfg.n_embd, head_size), "query")?, None);
+        let value = Linear::new(vb.get((cfg.n_embd, head_size), "value")?, None);
+
         // Create lower triangular mask
-        let tril = Tensor::tril2(
-            cfg.block_size,
-            DType::F32,
-            vb.device()
-        )?;
+        let tril = Tensor::tril2(cfg.block_size, DType::F32, vb.device())?;
 
         let neg_inf = Tensor::try_from(f32::NEG_INFINITY)?.to_device(vb.device())?;
 
@@ -64,24 +46,27 @@ impl Head {
 impl Module for Head {
     fn forward(&self, x: &Tensor) -> Result<Tensor> {
         let (_, seq_len, n_embed) = x.dims3()?;
-        
+
         // Get key, query and value projections
         let k = self.key.forward(x)?;
         let q = self.query.forward(x)?;
         let v = self.value.forward(x)?;
 
-        
         let mut weight = ((q.matmul(&k.transpose(D::Minus2, D::Minus1)?))? * self.scale)?;
 
         // Apply causal mask
-        let masked_weight = self.tril.i((..seq_len, ..n_embed))?.broadcast_as(Shape::from(weight.shape()))?
-        .where_cond(&weight, &self.neg_inf.broadcast_as(Shape::from(weight.shape()))?)?;
+        let masked_weight = self
+            .tril
+            .i((..seq_len, ..n_embed))?
+            .broadcast_as(Shape::from(weight.shape()))?
+            .where_cond(
+                &weight,
+                &self.neg_inf.broadcast_as(Shape::from(weight.shape()))?,
+            )?;
 
-        
         // Apply softmax and dropout
         weight = candle_nn::ops::softmax(&masked_weight, D::Minus1)?;
         weight = candle_nn::ops::dropout(&weight, self.dropout_p as f32)?;
-
 
         // Compute output
         let v = self.value.forward(&x)?;
@@ -89,4 +74,3 @@ impl Module for Head {
         Ok(output)
     }
 }
-

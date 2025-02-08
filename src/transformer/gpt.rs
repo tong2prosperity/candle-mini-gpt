@@ -6,6 +6,9 @@ use candle_nn::{
     embedding, layer_norm, linear, loss::cross_entropy, AdamW, Embedding, LayerNorm,
     LayerNormConfig, Optimizer as _, ParamsAdamW, VarBuilder, VarMap,
 };
+use candle_transformers::generation::LogitsProcessor;
+use log::info;
+use tokenizers::Tokenizer;
 
 pub struct Block {
     var_map: VarMap,
@@ -56,10 +59,11 @@ pub struct GPTModel {
     lm_head: Linear,
     cfg: Config,
     var_map: VarMap,
+    tokenizer: Tokenizer,
 }
 
 impl GPTModel {
-    pub fn new(cfg: &Config, device: &Device) -> Result<Self> {
+    pub fn new(cfg: &Config, device: &Device, tokenizer: Tokenizer) -> Result<Self> {
         let var_map = VarMap::new();
         let vb = VarBuilder::from_varmap(&var_map, DType::F32, device);
         let token_embedding = embedding(cfg.n_vocab, cfg.n_embd, vb.pp("token_embedding"))?;
@@ -79,6 +83,7 @@ impl GPTModel {
             layer_norm: ln_f,
             cfg: cfg.clone(),
             var_map,
+            tokenizer,
             lm_head,
         })
     }
@@ -104,13 +109,36 @@ impl GPTModel {
         Ok(())
     }
 
-    // fn generate(&self, x: &Tensor, max_new_tokens: usize) -> Result<Tensor> {
-    //     let mut x = x.clone();
-    //     for _ in 0..max_new_tokens {
-    //         let logits = self.forward(&x)?;
-    //         let next_token = logits.argmax(D::Minus1)?;
-    //     }
-    // }
+    fn generate(&self, input: &str, max_new_tokens: usize, temperature: f64) -> Result<String> {
+        let mut tokens = self
+            .tokenizer
+            .encode(input, true)
+            .unwrap()
+            .get_ids()
+            .to_vec();
+        let mut generated_tokens = 0usize;
+
+        let mut logits_processor = LogitsProcessor::new(0, Some(temperature), Some(0.6));
+        for _ in 0..max_new_tokens {
+            // cap the tokens to context size
+            let token_len = tokens.len();
+            if token_len > self.cfg.block_size {
+                tokens = tokens
+                    .into_iter()
+                    .skip(token_len - self.cfg.block_size)
+                    .collect();
+            }
+            let input = Tensor::new(tokens.as_slice(), &self.cfg.device)?.unsqueeze(0)?;
+            // temperature sampling
+            let logits = self.forward(&input)?;
+            let next_token = logits_processor.sample(&logits)?;
+            tokens.push(next_token);
+            generated_tokens += 1;
+        }
+        info!("generated_tokens: {}", generated_tokens);
+        let decoded = self.tokenizer.decode(tokens.as_slice(), true).unwrap();
+        Ok(decoded)
+    }
 }
 
 impl Module for GPTModel {
