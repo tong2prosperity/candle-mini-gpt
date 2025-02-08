@@ -11,7 +11,6 @@ use log::info;
 use tokenizers::Tokenizer;
 
 pub struct Block {
-    var_map: VarMap,
     self_attn: MultiHeadAttention,
     feed_forward: FeedForward,
     ln1: LayerNorm,
@@ -21,15 +20,12 @@ pub struct Block {
 
 impl Block {
     pub fn new(vb: VarBuilder, cfg: &Config) -> Result<Self> {
-        let var_map = VarMap::new();
-        let vb = VarBuilder::from_varmap(&var_map, DType::F32, &cfg.device);
         let self_attn = MultiHeadAttention::new(vb.clone(), cfg)?;
         let feed_forward = FeedForward::new(vb.clone(), cfg)?;
         let ln1 = layer_norm(cfg.n_embd, LayerNormConfig::from(1e-5), vb.pp("ln1"))?;
         let ln2 = layer_norm(cfg.n_embd, LayerNormConfig::from(1e-5), vb.pp("ln2"))?;
 
         Ok(Self {
-            var_map,
             self_attn,
             feed_forward,
             ln1,
