@@ -91,9 +91,6 @@ impl GPTModel {
             let (training_inputs, training_targets) =
                 dataset.random_training_batch(self.cfg.n_ctx, batch_size)?;
 
-            println!("training_inputs shape: {:?}", training_inputs.shape());
-            println!("training_targets shape: {:?}", training_targets.shape());
-
             let logits = self.forward(&training_inputs)?;
             let (batch_size, context_size, embedding_size) = logits.shape().dims3()?;
             let logits = logits.reshape((batch_size * context_size, embedding_size))?;
