@@ -1,5 +1,5 @@
 use super::*;
-use candle_nn::{Linear, Activation, Dropout};
+use candle_nn::{linear, Activation, Dropout, Linear};
 
 pub struct FeedForward {
     linear1: Linear,
@@ -11,17 +11,20 @@ pub struct FeedForward {
 
 impl FeedForward {
     pub fn new(vb: VarBuilder, cfg: &Config) -> Result<Self> {
-        let linear1 = Linear::new(vb.get((cfg.n_embd, 4 * cfg.n_embd), "linear1")?, None);
+        let linear1 = linear(cfg.n_embd, 4 * cfg.n_embd, vb.pp("linear1"))?;
         let relu = Activation::Relu;
-        let linear2 = Linear::new(vb.get((4 * cfg.n_embd, cfg.n_embd), "linear2")?, None);
+        let linear2 = linear(4 * cfg.n_embd, cfg.n_embd, vb.pp("linear2"))?;
         let dropout = Dropout::new(cfg.dropout);
 
-        Ok(Self { linear1, relu, linear2, dropout, cfg: cfg.clone() })
+        Ok(Self {
+            linear1,
+            relu,
+            linear2,
+            dropout,
+            cfg: cfg.clone(),
+        })
     }
 }
-
-
-
 
 impl Module for FeedForward {
     fn forward(&self, x: &Tensor) -> Result<Tensor> {

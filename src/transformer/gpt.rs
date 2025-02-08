@@ -67,8 +67,7 @@ impl GPTModel {
         let var_map = VarMap::new();
         let vb = VarBuilder::from_varmap(&var_map, DType::F32, device);
         let token_embedding = embedding(cfg.n_vocab, cfg.n_embd, vb.pp("token_embedding"))?;
-        let position_embedding =
-            embedding(cfg.block_size, cfg.n_embd, vb.pp("position_embedding"))?;
+        let position_embedding = embedding(cfg.n_ctx, cfg.n_embd, vb.pp("position_embedding"))?;
         let blocks = (0..cfg.n_layer)
             .map(|i| Block::new(vb.pp(&format!("blocks.{}", i)), cfg))
             .collect::<Result<Vec<_>>>()?;
@@ -93,7 +92,10 @@ impl GPTModel {
 
         for epoch in 0..num_epochs {
             let (training_inputs, training_targets) =
-                dataset.random_training_batch(self.cfg.block_size, batch_size)?;
+                dataset.random_training_batch(self.cfg.n_ctx, batch_size)?;
+
+            println!("training_inputs shape: {:?}", training_inputs.shape());
+            println!("training_targets shape: {:?}", training_targets.shape());
 
             let logits = self.forward(&training_inputs)?;
             let (batch_size, context_size, embedding_size) = logits.shape().dims3()?;
@@ -103,7 +105,11 @@ impl GPTModel {
 
             optimizer.backward_step(&loss)?;
 
-            println!("Epoch {} Training loss: {}", epoch, loss);
+            println!(
+                "Epoch {} Training loss: {}",
+                epoch,
+                loss.to_scalar::<f32>()?
+            );
         }
 
         Ok(())
@@ -122,10 +128,10 @@ impl GPTModel {
         for _ in 0..max_new_tokens {
             // cap the tokens to context size
             let token_len = tokens.len();
-            if token_len > self.cfg.block_size {
+            if token_len > self.cfg.n_ctx {
                 tokens = tokens
                     .into_iter()
-                    .skip(token_len - self.cfg.block_size)
+                    .skip(token_len - self.cfg.n_ctx)
                     .collect();
             }
             let input = Tensor::new(tokens.as_slice(), &self.cfg.device)?.unsqueeze(0)?;

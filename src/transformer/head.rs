@@ -1,5 +1,5 @@
 use candle_core::{DType, Device, IndexOp, Module, Result, Shape, Tensor, D};
-use candle_nn::{Linear, VarBuilder};
+use candle_nn::{linear, linear_no_bias, Linear, VarBuilder};
 
 use super::Config;
 
@@ -17,12 +17,12 @@ pub struct Head {
 impl Head {
     pub fn new(vb: VarBuilder, cfg: &Config, head_size: usize) -> Result<Self> {
         // Initialize the linear layers without bias
-        let key = Linear::new(vb.get((cfg.n_embd, head_size), "key")?, None);
-        let query = Linear::new(vb.get((cfg.n_embd, head_size), "query")?, None);
-        let value = Linear::new(vb.get((cfg.n_embd, head_size), "value")?, None);
+        let key = linear_no_bias(cfg.n_embd, head_size, vb.pp("key"))?;
+        let query = linear_no_bias(cfg.n_embd, head_size, vb.pp("query"))?;
+        let value = linear_no_bias(cfg.n_embd, head_size, vb.pp("value"))?;
 
         // Create lower triangular mask
-        let tril = Tensor::tril2(cfg.block_size, DType::F32, vb.device())?;
+        let tril = Tensor::tril2(cfg.n_ctx, DType::U32, vb.device())?;
 
         let neg_inf = Tensor::try_from(f32::NEG_INFINITY)?.to_device(vb.device())?;
 
@@ -57,7 +57,7 @@ impl Module for Head {
         // Apply causal mask
         let masked_weight = self
             .tril
-            .i((..seq_len, ..n_embed))?
+            .i((..seq_len, ..seq_len))?
             .broadcast_as(Shape::from(weight.shape()))?
             .where_cond(
                 &weight,
