@@ -22,9 +22,8 @@ impl Head {
         let value = linear_no_bias(cfg.n_embd, head_size, vb.pp("value"))?;
 
         // Create lower triangular mask
-        let tril = Tensor::tril2(cfg.n_ctx, DType::U32, vb.device())?;
-
-        let neg_inf = Tensor::try_from(f32::NEG_INFINITY)?.to_device(vb.device())?;
+        let tril = Tensor::tril2(cfg.n_ctx, DType::U32, &cfg.device)?;
+        let neg_inf = Tensor::try_from(f32::NEG_INFINITY)?.to_device(&cfg.device)?;
 
         Ok(Self {
             key,
@@ -46,7 +45,6 @@ impl Head {
 impl Module for Head {
     fn forward(&self, x: &Tensor) -> Result<Tensor> {
         let (_, seq_len, n_embed) = x.dims3()?;
-
         // Get key, query and value projections
         let k = self.key.forward(x)?;
         let q = self.query.forward(x)?;

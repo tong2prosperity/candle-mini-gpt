@@ -27,6 +27,7 @@ pub fn main() -> Result<()> {
         {
             if utils::metal_is_available() {
                 Device::new_metal(0)?
+                //Device::Cpu
             } else {
                 Device::Cpu
             }
@@ -61,7 +62,7 @@ fn test_tokenizer() {
 
 fn load_dataset(tokenizer: &tokenizers::Tokenizer, device: &Device) -> Result<Dataset> {
     let text = load_file(
-        &"/Users/nixi/Project/ML/rust/candle-mini-gpt/res/articles/super_magical_emperior.txt"
+        &"./res/articles/super_magical_emperior.txt"
             .to_string(),
     )?;
     let encoded = tokenizer.encode(text, true).unwrap();

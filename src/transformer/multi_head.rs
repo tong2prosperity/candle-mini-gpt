@@ -1,5 +1,5 @@
 use candle_core::{Module, Result, Tensor, D};
-use candle_nn::{Linear, VarBuilder};
+use candle_nn::{linear, Linear, VarBuilder};
 
 use super::head::Head;
 use super::Config;
@@ -14,20 +14,14 @@ pub struct MultiHeadAttention {
 impl MultiHeadAttention {
     pub fn new(vb: VarBuilder, cfg: &Config) -> Result<Self> {
         let head_size = cfg.n_embd / cfg.n_head;
-
         // Create multiple heads
         let mut heads = Vec::with_capacity(cfg.n_head);
         for i in 0..cfg.n_head {
             let head_vb = vb.pp(&format!("head_{}", i));
             heads.push(Head::new(head_vb, cfg, head_size)?);
         }
-
         // Final projection layer
-        let proj = Linear::new(
-            vb.pp("proj").get((cfg.n_embd, cfg.n_embd), "weight")?,
-            Some(vb.pp("proj").get(cfg.n_embd, "bias")?),
-        );
-
+        let proj = linear(cfg.n_embd, cfg.n_embd, vb.pp("proj"))?;
         Ok(Self {
             heads,
             proj,

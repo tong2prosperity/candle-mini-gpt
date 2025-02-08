@@ -20,8 +20,8 @@ pub struct Block {
 
 impl Block {
     pub fn new(vb: VarBuilder, cfg: &Config) -> Result<Self> {
-        let self_attn = MultiHeadAttention::new(vb.clone(), cfg)?;
-        let feed_forward = FeedForward::new(vb.clone(), cfg)?;
+        let self_attn = MultiHeadAttention::new(vb.pp("self_attn"), cfg)?;
+        let feed_forward = FeedForward::new(vb.pp("feed_forward"), cfg)?;
         let ln1 = layer_norm(cfg.n_embd, LayerNormConfig::from(1e-5), vb.pp("ln1"))?;
         let ln2 = layer_norm(cfg.n_embd, LayerNormConfig::from(1e-5), vb.pp("ln2"))?;
 
@@ -84,6 +84,7 @@ impl GPTModel {
     }
 
     pub fn train(&self, dataset: &mut Dataset, num_epochs: usize, batch_size: usize) -> Result<()> {
+        println!("var_map parameters size: {:?}", self.var_map.all_vars().len());
         let mut optimizer = AdamW::new(self.var_map.all_vars(), ParamsAdamW::default())?;
 
         for epoch in 0..num_epochs {
