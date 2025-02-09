@@ -83,28 +83,93 @@ impl GPTModel {
         })
     }
 
+    pub fn save(&self, path: &str) -> Result<()> {
+        self.var_map.save(path)?;
+        Ok(())
+    }
+
+    pub fn load(cfg: &Config, path: &str, tokenizer: Tokenizer) -> Result<Self> {
+        let mut var_map = VarMap::new();
+        var_map.load(path)?;
+        let vb = VarBuilder::from_varmap(&var_map, DType::F32, &cfg.device);
+        let token_embedding = embedding(cfg.n_vocab, cfg.n_embd, vb.pp("token_embedding"))?;
+        let position_embedding = embedding(cfg.n_ctx, cfg.n_embd, vb.pp("position_embedding"))?;
+        let blocks = (0..cfg.n_layer)
+            .map(|i| Block::new(vb.pp(&format!("blocks.{}", i)), cfg))
+            .collect::<Result<Vec<_>>>()?;
+        let ln_f = layer_norm(cfg.n_embd, LayerNormConfig::from(1e-5), vb.pp("ln_f"))?;
+        let lm_head = linear(cfg.n_embd, cfg.n_vocab, vb.pp("lm_head"))?;
+
+        let model = Self {
+            token_embedding,
+            position_embedding,
+            blocks,
+            layer_norm: ln_f,
+            cfg: cfg.clone(),
+            var_map,
+            tokenizer,
+            lm_head,
+        };
+        Ok(model)
+    }
+
     pub fn train(&self, dataset: &mut Dataset, num_epochs: usize, batch_size: usize) -> Result<()> {
-        println!("var_map parameters size: {:?}", self.var_map.all_vars().len());
+        println!(
+            "var_map parameters size: {:?}",
+            self.var_map.all_vars().len()
+        );
         let mut optimizer = AdamW::new(self.var_map.all_vars(), ParamsAdamW::default())?;
 
         for epoch in 0..num_epochs {
-            let (training_inputs, training_targets) =
-                dataset.random_training_batch(self.cfg.n_ctx, batch_size)?;
+            // 获取所有可能的训练窗口
+            let total_windows = dataset.get_total_training_windows(self.cfg.n_ctx)?;
 
-            let logits = self.forward(&training_inputs)?;
-            let (batch_size, context_size, embedding_size) = logits.shape().dims3()?;
-            let logits = logits.reshape((batch_size * context_size, embedding_size))?;
-            let targets = training_targets.reshape((batch_size * context_size,))?;
-            let loss = cross_entropy(&logits, &targets)?;
+            // 对每个batch进行训练
+            for batch_idx in (0..total_windows).step_by(batch_size) {
+                let actual_batch_size = batch_size.min(total_windows - batch_idx);
+                let (training_inputs, training_targets) = dataset.get_sequential_training_batch(
+                    batch_idx,
+                    actual_batch_size,
+                    self.cfg.n_ctx,
+                )?;
 
-            optimizer.backward_step(&loss)?;
+                let logits = self.forward(&training_inputs)?;
+                let (batch_size, context_size, embedding_size) = logits.shape().dims3()?;
+                let logits = logits.reshape((batch_size * context_size, embedding_size))?;
+                let targets = training_targets.reshape((batch_size * context_size,))?;
+                let loss = cross_entropy(&logits, &targets)?;
 
-            println!(
-                "Epoch {} Training loss: {}",
-                epoch,
-                loss.to_scalar::<f32>()?
-            );
+                optimizer.backward_step(&loss)?;
+
+                if batch_idx % 100 == 0 {
+                    println!(
+                        "Epoch {} Batch {}/{} Loss: {}",
+                        epoch,
+                        batch_idx,
+                        total_windows,
+                        loss.to_scalar::<f32>()?
+                    );
+                }
+            }
         }
+        // for epoch in 0..num_epochs {
+        //     let (training_inputs, training_targets) =
+        //         dataset.random_training_batch(self.cfg.n_ctx, batch_size)?;
+
+        //     let logits = self.forward(&training_inputs)?;
+        //     let (batch_size, context_size, embedding_size) = logits.shape().dims3()?;
+        //     let logits = logits.reshape((batch_size * context_size, embedding_size))?;
+        //     let targets = training_targets.reshape((batch_size * context_size,))?;
+        //     let loss = cross_entropy(&logits, &targets)?;
+
+        //     optimizer.backward_step(&loss)?;
+
+        //     println!(
+        //         "Epoch {} Training loss: {}",
+        //         epoch,
+        //         loss.to_scalar::<f32>()?
+        //     );
+        // }
 
         Ok(())
     }
