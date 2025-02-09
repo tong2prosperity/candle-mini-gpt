@@ -53,4 +53,41 @@ impl Dataset {
 
         Ok((stacked_contexts, stacked_targets))
     }
+
+    // 计算总共可能的训练窗口数量
+    pub fn get_total_training_windows(&self, context_size: usize) -> Result<usize> {
+        let total_tokens = self.training_data.shape().dims1()?;
+        Ok(total_tokens - context_size + 1)
+    }
+
+    // 获取连续的训练batch
+    pub fn get_sequential_training_batch(
+        &self,
+        start_idx: usize,
+        batch_size: usize,
+        context_size: usize,
+    ) -> Result<(Tensor, Tensor)> {
+        let mut input_indices: Vec<Tensor> = Vec::with_capacity(batch_size);
+        let mut target_indices: Vec<Tensor> = Vec::with_capacity(batch_size);
+        // let mut input_indices_tensor = Tensor::zeros((batch_size, context_size), DType::I32)?;
+        // let mut target_indices_tensor = Tensor::zeros((batch_size, context_size), DType::I32)?;
+
+        for i in 0..batch_size {
+            let window_start = start_idx + i;
+            let window_end = window_start + context_size;
+
+            // 确保不会超出训练数据范围
+            if window_end > self.training_data.shape().dims1()? {
+                break;
+            }
+
+            input_indices.push(self.training_data.i(window_start..window_end)?);
+            target_indices.push(self.training_data.i((window_start + 1)..(window_end + 1))?);
+        }
+
+        let inputs = Tensor::stack(&input_indices, 0)?;
+        let targets = Tensor::stack(&target_indices, 0)?;
+
+        Ok((inputs, targets))
+    }
 }
