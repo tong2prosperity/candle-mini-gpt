@@ -126,6 +126,9 @@ impl GPTModel {
 
             // 对每个batch进行训练
             for batch_idx in (0..total_windows).step_by(batch_size) {
+                if batch_idx >= 301600 {
+                    break;
+                }
                 let actual_batch_size = batch_size.min(total_windows - batch_idx);
                 let (training_inputs, training_targets) = dataset.get_sequential_training_batch(
                     batch_idx,
@@ -142,8 +145,11 @@ impl GPTModel {
                 optimizer.backward_step(&loss)?;
 
                 if batch_idx % 100 == 0 {
+                    // also print the current time
+                    let current_time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
                     println!(
-                        "Epoch {} Batch {}/{} Loss: {}",
+                        "Time: {} Epoch {} Batch {}/{} Loss: {}",
+                        current_time,
                         epoch,
                         batch_idx,
                         total_windows,

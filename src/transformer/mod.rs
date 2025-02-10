@@ -32,7 +32,7 @@ const N_VOCAB: usize = 20000;
 const N_EMBED: usize = 256;
 const N_HEAD: usize = 4;
 const N_LAYER: usize = 4;
-const DROPOUT: f32 = 0.2;
+const DROPOUT: f32 = 0.1;
 
 #[derive(Debug, Clone)]
 pub struct Config {
