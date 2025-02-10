@@ -1,5 +1,5 @@
 fn main() {
-    let target_os = "macos".to_string();//std::env::var("CARGO_CFG_TARGET_OS").unwrap();
+    /* let target_os = "macos".to_string();//std::env::var("CARGO_CFG_TARGET_OS").unwrap();
     let target_arch = "aarch64".to_string();//std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
     
     
@@ -10,5 +10,5 @@ fn main() {
     } else {
         println!("cargo:rustc-cfg=feature=\"cuda\"");
         println!("cargo:rustc-cfg=cuda");
-    }
+    } */
 }
