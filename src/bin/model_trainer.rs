@@ -47,7 +47,7 @@ pub fn main() -> Result<()> {
     let mut dataset = load_dataset(&tokenizer, &config.device)?;
 
     let GPT = GPTModel::new(&config, &config.device, tokenizer)?;
-    GPT.train(&mut dataset, 10, 4)?;
+    GPT.train(&mut dataset, 1, 4)?;
     Ok(())
 }
 
@@ -61,10 +61,7 @@ fn test_tokenizer() {
 }
 
 fn load_dataset(tokenizer: &tokenizers::Tokenizer, device: &Device) -> Result<Dataset> {
-    let text = load_file(
-        &"./res/articles/super_magical_emperior.txt"
-            .to_string(),
-    )?;
+    let text = load_file(&"./res/articles/super_magical_emperior.txt".to_string())?;
     let encoded = tokenizer.encode(text, true).unwrap();
 
     let data = Tensor::from_slice(encoded.get_ids(), Shape::from(encoded.len()), device).unwrap();
