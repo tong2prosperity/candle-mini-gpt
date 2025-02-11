@@ -30,7 +30,7 @@ walkdir = "2.5"
 tokenizers = "0.21"
 
 anyhow = "1.0"
-opencc-rust = "1.1.19"
+opencc-rust = {version = "1.1.19", optional = true}
 rand = "0.9"
 
 
@@ -39,6 +39,6 @@ env_logger = "0.11"
 chrono = "0.4"
 
 [features]
-default = ["metal"]
+default = ["cuda"]
 cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
-metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
+metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal", "opencc-rust"]
