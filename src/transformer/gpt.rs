@@ -205,7 +205,11 @@ impl GPTModel {
             // temperature sampling
             let logits = self.forward(&input)?;
             println!("logits: {:?}", logits);
-            let logits = logits.squeeze(0)?.to_dtype(DType::F32)?;
+            let logits = logits.squeeze(0)?;
+            let logits = logits.get(token_len - 1)?;
+            println!("logits: {:?}", logits);
+            
+            
             let next_token = logits_processor.sample(&logits)?;
             println!("next_token: {:?}", next_token);
             tokens.push(next_token);
