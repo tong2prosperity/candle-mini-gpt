@@ -180,7 +180,7 @@ impl GPTModel {
         Ok(())
     }
 
-    fn generate(&self, input: &str, max_new_tokens: usize, temperature: f64) -> Result<String> {
+    pub fn generate(&self, input: &str, max_new_tokens: usize, temperature: f64) -> Result<String> {
         let mut tokens = self
             .tokenizer
             .encode(input, true)
@@ -190,6 +190,7 @@ impl GPTModel {
         let mut generated_tokens = 0usize;
 
         let mut logits_processor = LogitsProcessor::new(0, Some(temperature), Some(0.6));
+        println!("tokens: {:?}", tokens);
         for _ in 0..max_new_tokens {
             // cap the tokens to context size
             let token_len = tokens.len();
@@ -200,9 +201,13 @@ impl GPTModel {
                     .collect();
             }
             let input = Tensor::new(tokens.as_slice(), &self.cfg.device)?.unsqueeze(0)?;
+            println!("input: {:?}", input);
             // temperature sampling
             let logits = self.forward(&input)?;
+            println!("logits: {:?}", logits);
+            let logits = logits.squeeze(0)?.to_dtype(DType::F32)?;
             let next_token = logits_processor.sample(&logits)?;
+            println!("next_token: {:?}", next_token);
             tokens.push(next_token);
             generated_tokens += 1;
         }

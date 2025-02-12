@@ -20,6 +20,10 @@ path = "src/bin/tokenizer_train.rs"
 name = "trainer"
 path = "src/bin/model_trainer.rs"
 
+[[bin]]
+name = "infer"
+path = "src/bin/inference.rs"
+
 [dependencies]
 candle-core = { version = "0.8.2", path = "candle/candle-core" }
 candle-nn = { version = "0.8.2", path = "candle/candle-nn" }
