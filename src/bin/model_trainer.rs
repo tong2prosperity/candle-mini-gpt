@@ -65,7 +65,7 @@ pub fn main() -> Result<()> {
 
     files.clear();
 
-    files.push("res/articles/duizhang_short.txt".to_string());
+    files.push("res/articles/duizhang_short_real.txt".to_string());
 
 
     // 逐个文件训练
@@ -76,7 +76,7 @@ pub fn main() -> Result<()> {
         let mut dataset = load_single_dataset(&file_path, &gpt.tokenizer, &config.device)?;
         
         // 训练2个epochs
-        gpt.train(&mut dataset, 2, 8)?;
+        gpt.train(&mut dataset, 4, 10)?;
         
         // 定期保存模型
         if (idx + 1) % 5 == 0 {
