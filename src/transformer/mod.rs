@@ -29,10 +29,10 @@ const EVAL_ITERS: usize = 200;
 
 const N_VOCAB: usize = 20000;
 
-const N_EMBED: usize = 600;
-const N_HEAD: usize = 6;
-const N_LAYER: usize = 6;
-const DROPOUT: f32 = 0.2;
+const N_EMBED: usize = 768;
+const N_HEAD: usize = 12;
+const N_LAYER: usize = 12;
+const DROPOUT: f32 = 0.1;
 
 #[derive(Debug, Clone)]
 pub struct Config {

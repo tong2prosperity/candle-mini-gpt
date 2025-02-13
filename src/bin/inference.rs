@@ -39,9 +39,9 @@ pub fn main() -> Result<()> {
     let config = Config::new(true, device);
     
 
-    let GPT = GPTModel::load(&config, "./gpt_model.bin", tokenizer)?;
+    let GPT = GPTModel::load(&config, "./gpt_model_final.bin", tokenizer)?;
 
-    let result = GPT.generate("你好，世界！", 10, 0.3)?;
+    let result = GPT.generate("这个世界有太多", 20, 0.3)?;
     println!("result: {}", result);
 
     
