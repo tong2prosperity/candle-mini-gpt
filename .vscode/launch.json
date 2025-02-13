@@ -1,17 +1,118 @@
 {
-  // Use IntelliSense to learn about possible attributes.
-  // Hover to view descriptions of existing attributes.
-  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Cargo launch",
+      "name": "Debug unit tests in library 'candle_mini_gpt'",
       "cargo": {
-        "args": ["build", "--bin", "model_trainer"]
+        "args": ["test", "--no-run", "--lib", "--package=candle-mini-gpt"],
+        "filter": {
+          "name": "candle_mini_gpt",
+          "kind": "lib"
+        }
       },
-      "args": []
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'hello_ml'",
+      "cargo": {
+        "args": ["build", "--bin=hello_ml", "--package=candle-mini-gpt"],
+        "filter": {
+          "name": "hello_ml",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in executable 'hello_ml'",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--bin=hello_ml",
+          "--package=candle-mini-gpt"
+        ],
+        "filter": {
+          "name": "hello_ml",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'tokenizer_train'",
+      "cargo": {
+        "args": ["build", "--bin=tokenizer_train", "--package=candle-mini-gpt"],
+        "filter": {
+          "name": "tokenizer_train",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in executable 'tokenizer_train'",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--bin=tokenizer_train",
+          "--package=candle-mini-gpt"
+        ],
+        "filter": {
+          "name": "tokenizer_train",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'trainer'",
+      "cargo": {
+        "args": ["build", "--bin=trainer", "--package=candle-mini-gpt"],
+        "filter": {
+          "name": "trainer",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in executable 'trainer'",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--bin=trainer",
+          "--package=candle-mini-gpt"
+        ],
+        "filter": {
+          "name": "trainer",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
     }
   ]
 }
