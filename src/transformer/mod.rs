@@ -21,7 +21,7 @@ use candle_nn::{Linear, VarBuilder};
 // const DROPOUT: f32 = 0.2;
 
 const BATCH_SIZE: usize = 4;
-const CONTEXT_SIZE: usize = 1024;
+const CONTEXT_SIZE: usize = 2048;
 const MAX_ITERS: usize = 1000;
 const EVAL_INTERVAL: usize = 100;
 const LEARNING_RATE: f32 = 1e-3;

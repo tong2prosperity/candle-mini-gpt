@@ -55,7 +55,7 @@ pub struct GPTModel {
     lm_head: Linear,
     cfg: Config,
     var_map: VarMap,
-    tokenizer: Tokenizer,
+    pub tokenizer: Tokenizer,
 }
 
 impl GPTModel {
@@ -126,15 +126,18 @@ impl GPTModel {
 
             // 对每个batch进行训练
             for batch_idx in (0..total_windows).step_by(batch_size) {
-                if batch_idx >= 301600 {
-                    break;
-                }
                 let actual_batch_size = batch_size.min(total_windows - batch_idx);
-                let (training_inputs, training_targets) = dataset.get_sequential_training_batch(
+                let (training_inputs, training_targets) = match dataset.get_sequential_training_batch(
                     batch_idx,
                     actual_batch_size,
                     self.cfg.n_ctx,
-                )?;
+                ) {
+                    Ok(result) => result,
+                    Err(e) => {
+                        println!("Error getting sequential training batch: {:?}", e);
+                        continue;
+                    }
+                };
 
                 let logits = self.forward(&training_inputs)?;
                 let (batch_size, context_size, embedding_size) = logits.shape().dims3()?;

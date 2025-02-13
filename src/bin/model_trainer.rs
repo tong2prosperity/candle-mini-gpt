@@ -7,7 +7,7 @@ use candle_mini_gpt::{
     transformer::{gpt::GPTModel, Config},
 };
 use tokenizers;
-
+use walkdir::WalkDir;
 fn load_file(path: &String) -> anyhow::Result<String> {
     let mut file = File::open(path)?;
 
@@ -16,6 +16,20 @@ fn load_file(path: &String) -> anyhow::Result<String> {
 
     Ok(contents)
 }
+
+fn collect_txt_files(dir_path: &str) -> Vec<String> {
+    WalkDir::new(dir_path)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.path()
+                .extension()
+                .map_or(false, |ext| ext.eq_ignore_ascii_case("txt"))
+        })
+        .map(|e| e.path().to_string_lossy().into_owned())
+        .collect()
+}
+
 
 pub fn main() -> Result<()> {
     let tokenizer = tokenizers::Tokenizer::from_file("leader_bpe_tokenizer.json").unwrap();
@@ -43,12 +57,35 @@ pub fn main() -> Result<()> {
     };
 
     let config = Config::new(true, device);
+    let mut gpt = GPTModel::new(&config, &config.device, tokenizer)?;
 
-    let mut dataset = load_dataset(&tokenizer, &config.device)?;
+    // 获取所有txt文件路径
+    let mut files = collect_txt_files("res/articles");
+    println!("Found {} files to train on", files.len());
 
-    let GPT = GPTModel::new(&config, &config.device, tokenizer)?;
-    GPT.train(&mut dataset, 2, 4)?;
-    GPT.save("gpt_model.bin")?;
+    files.clear();
+
+    files.push("res/articles/duizhang_short.txt".to_string());
+
+
+    // 逐个文件训练
+    for (idx, file_path) in files.iter().enumerate() {
+        println!("Training on file {}/{}: {}", idx + 1, files.len(), file_path);
+        
+        // 加载单个文件的数据集
+        let mut dataset = load_single_dataset(&file_path, &gpt.tokenizer, &config.device)?;
+        
+        // 训练2个epochs
+        gpt.train(&mut dataset, 2, 8)?;
+        
+        // 定期保存模型
+        if (idx + 1) % 5 == 0 {
+            gpt.save(&format!("gpt_model_checkpoint_{}.bin", idx + 1))?;
+        }
+    }
+
+    // 保存最终模型
+    gpt.save("gpt_model_final.bin")?;
     Ok(())
 }
 
@@ -61,8 +98,8 @@ fn test_tokenizer() {
     println!("decoded: {}", decoded);
 }
 
-fn load_dataset(tokenizer: &tokenizers::Tokenizer, device: &Device) -> Result<Dataset> {
-    let text = load_file(&"./res/articles/super_magical_emperior.txt".to_string())?;
+fn load_single_dataset(file_path: &str, tokenizer: &tokenizers::Tokenizer, device: &Device) -> Result<Dataset> {
+    let text = load_file(&file_path.to_string())?;
     let encoded = tokenizer.encode(text, true).unwrap();
 
     let data = Tensor::from_slice(encoded.get_ids(), Shape::from(encoded.len()), device).unwrap();
