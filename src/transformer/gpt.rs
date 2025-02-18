@@ -7,7 +7,7 @@ use candle_nn::{
     LayerNormConfig, Optimizer as _, ParamsAdamW, VarBuilder, VarMap,
 };
 use candle_transformers::generation::LogitsProcessor;
-use log::info;
+use log::{debug, error, info};
 use tokenizers::Tokenizer;
 
 pub struct Block {
@@ -114,7 +114,7 @@ impl GPTModel {
     }
 
     pub fn train(&self, dataset: &mut Dataset, num_epochs: usize, batch_size: usize) -> Result<()> {
-        println!(
+        info!(
             "var_map parameters size: {:?}",
             self.var_map.all_vars().len()
         );
@@ -132,7 +132,7 @@ impl GPTModel {
                 {
                     Ok(result) => result,
                     Err(e) => {
-                        println!("Error getting sequential training batch: {:?}", e);
+                        error!("Error getting sequential training batch: {:?}", e);
                         continue;
                     }
                 };
@@ -148,7 +148,7 @@ impl GPTModel {
                 if batch_idx % 100 == 0 {
                     // also print the current time
                     let current_time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
-                    println!(
+                    info!(
                         "Time: {} Epoch {} Batch {}/{} Loss: {}",
                         current_time,
                         epoch,
@@ -172,7 +172,7 @@ impl GPTModel {
         let mut generated_tokens = 0usize;
 
         let mut logits_processor = LogitsProcessor::new(0, Some(temperature), Some(0.6));
-        println!("tokens: {:?}", tokens);
+
         for _ in 0..max_new_tokens {
             // cap the tokens to context size
             let token_len = tokens.len();
@@ -183,16 +183,13 @@ impl GPTModel {
                     .collect();
             }
             let input = Tensor::new(tokens.as_slice(), &self.cfg.device)?.unsqueeze(0)?;
-            println!("input: {:?}", input);
             // temperature sampling
             let logits = self.forward(&input)?;
-            println!("logits: {:?}", logits);
             let logits = logits.squeeze(0)?;
             let logits = logits.get(token_len - 1)?;
-            println!("logits: {:?}", logits);
 
             let next_token = logits_processor.sample(&logits)?;
-            println!("next_token: {:?}", next_token);
+            debug!("next_token: {:?}", next_token);
             tokens.push(next_token);
             generated_tokens += 1;
         }
