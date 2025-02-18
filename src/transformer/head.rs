@@ -48,7 +48,6 @@ impl Module for Head {
         // Get key, query and value projections
         let k = self.key.forward(x)?;
         let q = self.query.forward(x)?;
-        let v = self.value.forward(x)?;
 
         let mut weight = ((q.matmul(&k.transpose(D::Minus2, D::Minus1)?))? * self.scale)?;
 
@@ -64,7 +63,7 @@ impl Module for Head {
 
         // Apply softmax and dropout
         weight = candle_nn::ops::softmax(&masked_weight, D::Minus1)?;
-        weight = candle_nn::ops::dropout(&weight, self.dropout_p as f32)?;
+        //weight = candle_nn::ops::dropout(&weight, self.dropout_p as f32)?;
 
         // Compute output
         let v = self.value.forward(&x)?;

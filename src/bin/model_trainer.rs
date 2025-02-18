@@ -1,4 +1,4 @@
-use std::{fs::File, io::Read, io::Write};
+use std::{fs::File, io::Read, io::Write, path::Path};
 
 use anyhow::Result;
 use candle_core::{utils, Device, Shape, Tensor};
@@ -35,7 +35,7 @@ pub fn main() -> Result<()> {
         .filter_level(log::LevelFilter::Debug)
         .init();
 
-    let tokenizer = tokenizers::Tokenizer::from_file("leader_bpe_tokenizer.json").unwrap();
+    let tokenizer = tokenizers::Tokenizer::from_file("leader_bpe_tokenizer1.json").unwrap();
     let vocab_size = tokenizer.get_vocab_size(true);
     println!("vocab_size: {}", vocab_size);
 
@@ -69,7 +69,8 @@ pub fn main() -> Result<()> {
     let mut dataset = load_dataset(&tokenizer, &config.device)?;
 
     let GPT = GPTModel::new(&config, &config.device, tokenizer)?;
-    GPT.train(&mut dataset, 4, 8)?;
+    GPT.train(&mut dataset, 10, 16)?;
+    config.save(&Path::new("config.json"))?;
     GPT.save("gpt_model.bin")?;
     Ok(())
 }

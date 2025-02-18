@@ -51,11 +51,11 @@ impl Module for MultiHeadAttention {
 
         // Apply final projection and dropout
         let out = self.proj.forward(&concat)?;
-        let out = if self.training {
-            candle_nn::ops::dropout(&out, self.dropout_p as f32)?
-        } else {
-            out
-        };
+        // let out = if self.training {
+        //     candle_nn::ops::dropout(&out, self.dropout_p as f32)?
+        // } else {
+        //     out
+        // };
 
         Ok(out)
     }

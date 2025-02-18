@@ -26,17 +26,17 @@ use anyhow::Result;
 // const DROPOUT: f32 = 0.2;
 
 const BATCH_SIZE: usize = 4;
-const CONTEXT_SIZE: usize = 1024;
+const CONTEXT_SIZE: usize = 256;
 const MAX_ITERS: usize = 1000;
 const EVAL_INTERVAL: usize = 100;
 const LEARNING_RATE: f32 = 1e-3;
 const EVAL_ITERS: usize = 200;
 
-const N_VOCAB: usize = 20000;
+const N_VOCAB: usize = 10000;
 
-const N_EMBED: usize = 768;
-const N_HEAD: usize = 12;
-const N_LAYER: usize = 12;
+const N_EMBED: usize = 384;
+const N_HEAD: usize = 8;
+const N_LAYER: usize = 6;
 const DROPOUT: f32 = 0.1;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

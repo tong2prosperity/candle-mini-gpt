@@ -118,7 +118,9 @@ impl GPTModel {
             "var_map parameters size: {:?}",
             self.var_map.all_vars().len()
         );
-        let mut optimizer = AdamW::new(self.var_map.all_vars(), ParamsAdamW::default())?;
+        let mut paramAdam = ParamsAdamW::default();
+        paramAdam.lr = 0.0004;
+        let mut optimizer = AdamW::new(self.var_map.all_vars(), paramAdam)?;
 
         for epoch in 0..num_epochs {
             // 获取所有可能的训练窗口

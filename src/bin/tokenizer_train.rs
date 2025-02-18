@@ -1,21 +1,23 @@
-use tokenizers::tokenizer::{Tokenizer, TokenizerBuilder};
+use anyhow::Result;
+use std::collections::{HashMap, HashSet};
+use std::path::Path;
 use tokenizers::models::bpe::{BpeTrainer, BpeTrainerBuilder, BPE};
 use tokenizers::normalizers::{Sequence, Strip, NFC, NFKC};
 use tokenizers::pre_tokenizers::byte_level::ByteLevel;
 use tokenizers::pre_tokenizers::delimiter::CharDelimiterSplit;
+use tokenizers::tokenizer::{Tokenizer, TokenizerBuilder};
 use tokenizers::AddedToken;
-use std::collections::{HashMap, HashSet};
-use std::path::Path;
-use anyhow::Result;
 
 use std::fs;
 use walkdir::WalkDir;
 
-fn count_chinese_chars_detailed(files: &[String]) -> Result<(usize, HashMap<char, usize>), std::io::Error> {
+fn count_chinese_chars_detailed(
+    files: &[String],
+) -> Result<(usize, HashMap<char, usize>), std::io::Error> {
     let mut unique_chars = HashSet::new();
     let mut char_frequency = HashMap::new();
     let mut total_chars = 0;
-    
+
     for file_path in files {
         let content = fs::read_to_string(file_path)?;
         for c in content.chars() {
@@ -26,18 +28,18 @@ fn count_chinese_chars_detailed(files: &[String]) -> Result<(usize, HashMap<char
             }
         }
     }
-    
+
     // 按频率排序
     let mut freq_vec: Vec<_> = char_frequency.iter().collect();
     freq_vec.sort_by(|a, b| b.1.cmp(a.1));
-    
+
     println!("Total Chinese characters: {}", total_chars);
     println!("Unique Chinese characters: {}", unique_chars.len());
     println!("\nTop 10 most frequent characters:");
     for (char, freq) in freq_vec.iter().take(10) {
         println!("{}: {} times", char, freq);
     }
-    
+
     Ok((unique_chars.len(), char_frequency))
 }
 
@@ -72,46 +74,40 @@ mod test {
         use opencc_rust::*;
 
         let opencc = OpenCC::new(DefaultConfig::TW2SP).unwrap();
-        
-          // 读取文件
-          let file_path = "res/articles/队长短文集 .txt";
-          
-              // 读取繁体内容
-              let content = fs::read_to_string(file_path).unwrap();
-              
-              // 转换为简体
-              let simplified = opencc.convert(&content);
-              
-              // 输出到新文件（添加.simplified后缀）
-              let path = Path::new(file_path);
-              let new_path = path.with_extension("simplified.txt");
-              fs::write(&new_path, simplified).unwrap();
-              
-              println!("Converted {} to {}", 
-                  path.display(), 
-                  new_path.display()
-              );
-          
+
+        // 读取文件
+        let file_path = "res/articles/队长短文集 .txt";
+
+        // 读取繁体内容
+        let content = fs::read_to_string(file_path).unwrap();
+
+        // 转换为简体
+        let simplified = opencc.convert(&content);
+
+        // 输出到新文件（添加.simplified后缀）
+        let path = Path::new(file_path);
+        let new_path = path.with_extension("simplified.txt");
+        fs::write(&new_path, simplified).unwrap();
+
+        println!("Converted {} to {}", path.display(), new_path.display());
     }
-
-
 }
 
 fn main() -> Result<()> {
     // 初始化 BPE trainer
 
     let mut trainer = BpeTrainerBuilder::new()
-    .show_progress(true)
-    .vocab_size(10_000)
-    .min_frequency(0)
-    .special_tokens(vec![
-        AddedToken::from(String::from("<bos>"), true),
-        AddedToken::from(String::from("<eos>"), true),
-        AddedToken::from(String::from("<pad>"), true),
-        AddedToken::from(String::from("<unk>"), true),
-        AddedToken::from(String::from("<mask>"), true),
-    ])
-    .build();
+        .show_progress(true)
+        .vocab_size(10_000)
+        .min_frequency(0)
+        .special_tokens(vec![
+            AddedToken::from(String::from("<bos>"), true),
+            AddedToken::from(String::from("<eos>"), true),
+            AddedToken::from(String::from("<pad>"), true),
+            AddedToken::from(String::from("<unk>"), true),
+            AddedToken::from(String::from("<mask>"), true),
+        ])
+        .build();
     // let trainer = BpeTrainer::builder()
     //     .vocab_size(30_000)                      // 词表大小
     //     .min_frequency(2)                        // 最小频率
@@ -124,15 +120,16 @@ fn main() -> Result<()> {
     //     ])
     //     .build();
     let mut tokenizer = TokenizerBuilder::new()
-    .with_model(BPE::default())
-    .with_normalizer(Some(Sequence::new(vec![
-        Strip::new(true, true).into(),
-        NFKC.into(),
-    ])))
-    .with_pre_tokenizer(Some(CharDelimiterSplit::new('\u{0}')))
-    .with_post_processor(Some(ByteLevel::default()))
-    .with_decoder(Some(ByteLevel::default()))
-    .build().unwrap();
+        .with_model(BPE::default())
+        .with_normalizer(Some(Sequence::new(vec![
+            Strip::new(true, true).into(),
+            NFKC.into(),
+        ])))
+        .with_pre_tokenizer(Some(CharDelimiterSplit::new('\u{0}')))
+        .with_post_processor(Some(ByteLevel::default()))
+        .with_decoder(Some(ByteLevel::default()))
+        .build()
+        .unwrap();
     // 创建 tokenizer
     // let mut tokenizer = TokenizerBuilder::new()
     //     .with_model(BPE::default())
@@ -153,7 +150,7 @@ fn main() -> Result<()> {
     tokenizer.train_from_files(&mut trainer, files).unwrap();
 
     // 保存训练好的 tokenizer
-    tokenizer.save("leader_bpe_tokenizer.json", true).unwrap();
+    tokenizer.save("leader_bpe_tokenizer1.json", true).unwrap();
 
     Ok(())
 }
