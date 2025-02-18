@@ -126,15 +126,16 @@ impl GPTModel {
 
             // 对每个batch进行训练
             for batch_idx in (0..total_windows).step_by(batch_size) {
-                if batch_idx >= 301600 {
-                    break;
-                }
                 let actual_batch_size = batch_size.min(total_windows - batch_idx);
-                let (training_inputs, training_targets) = dataset.get_sequential_training_batch(
-                    batch_idx,
-                    actual_batch_size,
-                    self.cfg.n_ctx,
-                )?;
+                let (training_inputs, training_targets) = match dataset
+                    .get_sequential_training_batch(batch_idx, actual_batch_size, self.cfg.n_ctx)
+                {
+                    Ok(result) => result,
+                    Err(e) => {
+                        println!("Error getting sequential training batch: {:?}", e);
+                        continue;
+                    }
+                };
 
                 let logits = self.forward(&training_inputs)?;
                 let (batch_size, context_size, embedding_size) = logits.shape().dims3()?;
@@ -158,25 +159,6 @@ impl GPTModel {
                 }
             }
         }
-        // for epoch in 0..num_epochs {
-        //     let (training_inputs, training_targets) =
-        //         dataset.random_training_batch(self.cfg.n_ctx, batch_size)?;
-
-        //     let logits = self.forward(&training_inputs)?;
-        //     let (batch_size, context_size, embedding_size) = logits.shape().dims3()?;
-        //     let logits = logits.reshape((batch_size * context_size, embedding_size))?;
-        //     let targets = training_targets.reshape((batch_size * context_size,))?;
-        //     let loss = cross_entropy(&logits, &targets)?;
-
-        //     optimizer.backward_step(&loss)?;
-
-        //     println!(
-        //         "Epoch {} Training loss: {}",
-        //         epoch,
-        //         loss.to_scalar::<f32>()?
-        //     );
-        // }
-
         Ok(())
     }
 
@@ -208,8 +190,7 @@ impl GPTModel {
             let logits = logits.squeeze(0)?;
             let logits = logits.get(token_len - 1)?;
             println!("logits: {:?}", logits);
-            
-            
+
             let next_token = logits_processor.sample(&logits)?;
             println!("next_token: {:?}", next_token);
             tokens.push(next_token);

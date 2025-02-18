@@ -1,4 +1,4 @@
-use std::{fs::File, io::Read};
+use std::{fs::File, io::Read, io::Write};
 
 use anyhow::Result;
 use candle_core::{utils, Device, Shape, Tensor};
@@ -6,6 +6,8 @@ use candle_mini_gpt::{
     data::Dataset,
     transformer::{gpt::GPTModel, Config},
 };
+use chrono::Local;
+use env_logger::{Builder, WriteStyle};
 use tokenizers;
 
 fn load_file(path: &String) -> anyhow::Result<String> {
@@ -18,6 +20,20 @@ fn load_file(path: &String) -> anyhow::Result<String> {
 }
 
 pub fn main() -> Result<()> {
+    Builder::from_default_env()
+        .format(|buf, record| {
+            writeln!(
+                buf,
+                "{} [{}] - {}",
+                Local::now().format("%Y-%m-%d %H:%M:%S"),
+                record.level(),
+                record.args()
+            )
+        })
+        .write_style(WriteStyle::Always)
+        .filter_level(log::LevelFilter::Debug)
+        .init();
+
     let tokenizer = tokenizers::Tokenizer::from_file("leader_bpe_tokenizer.json").unwrap();
     let vocab_size = tokenizer.get_vocab_size(true);
     println!("vocab_size: {}", vocab_size);
@@ -50,15 +66,6 @@ pub fn main() -> Result<()> {
     GPT.train(&mut dataset, 4, 8)?;
     GPT.save("gpt_model.bin")?;
     Ok(())
-}
-
-fn test_tokenizer() {
-    let tokenizer = tokenizers::Tokenizer::from_file("leader_bpe_tokenizer.json").unwrap();
-    let text = "你好，世界！";
-    let tokens = tokenizer.encode(text, true).unwrap();
-    println!("tokens: {:?}", tokens);
-    let decoded = tokenizer.decode(tokens.get_ids(), true).unwrap();
-    println!("decoded: {}", decoded);
 }
 
 fn load_dataset(tokenizer: &tokenizers::Tokenizer, device: &Device) -> Result<Dataset> {
