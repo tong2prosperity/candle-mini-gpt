@@ -143,14 +143,17 @@ fn main() -> Result<()> {
     //     .build().unwrap();
 
     // 训练文件路径
-    let files = collect_txt_files("res/articles");
+    let mut files = collect_txt_files("res/articles");
+
+    files.clear();
+    files.push("res/articles/super_magical_emperior.txt".to_string());
     println!("files: {:?}", files);
 
     // 训练模型
     tokenizer.train_from_files(&mut trainer, files).unwrap();
 
     // 保存训练好的 tokenizer
-    tokenizer.save("leader_bpe_tokenizer1.json", true).unwrap();
+    tokenizer.save("bpe_tokenizer_magical.json", true).unwrap();
 
     Ok(())
 }

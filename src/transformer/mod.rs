@@ -10,34 +10,17 @@ use candle_nn::{Linear, VarBuilder};
 use serde::{Deserialize, Serialize};
 
 use anyhow::Result;
-
-// const BATCH_SIZE: usize = 64;
-// const CONTEXT_SIZE: usize = 256;
-// const MAX_ITERS: usize = 5000;
-// const EVAL_INTERVAL: usize = 500;
-// const LEARNING_RATE: f32 = 3e-4;
-// const EVAL_ITERS: usize = 200;
-
-// const N_VOCAB: usize = 20000;
-
-// const N_EMBED: usize = 384;
-// const N_HEAD: usize = 6;
-// const N_LAYER: usize = 6;
-// const DROPOUT: f32 = 0.2;
-
-const BATCH_SIZE: usize = 4;
-const CONTEXT_SIZE: usize = 256;
 const MAX_ITERS: usize = 1000;
-const EVAL_INTERVAL: usize = 100;
-const LEARNING_RATE: f32 = 1e-3;
-const EVAL_ITERS: usize = 200;
 
+const BATCH_SIZE: usize = 12;
+const CONTEXT_SIZE: usize = 2048;
+
+const LEARNING_RATE: f32 = 3e-4;
 const N_VOCAB: usize = 10000;
-
-const N_EMBED: usize = 384;
-const N_HEAD: usize = 8;
-const N_LAYER: usize = 6;
-const DROPOUT: f32 = 0.1;
+const N_EMBED: usize = 768;
+const N_HEAD: usize = 12;
+const N_LAYER: usize = 4;
+const DROPOUT: f32 = 0.0;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConfigSerde {

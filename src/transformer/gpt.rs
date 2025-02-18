@@ -8,6 +8,10 @@ use candle_nn::{
 };
 use candle_transformers::generation::LogitsProcessor;
 use log::{debug, error, info};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use tokenizers::Tokenizer;
 
 pub struct Block {
@@ -113,21 +117,69 @@ impl GPTModel {
         Ok(model)
     }
 
-    pub fn train(&self, dataset: &mut Dataset, num_epochs: usize, batch_size: usize) -> Result<()> {
+    pub fn train_test(
+        &self,
+        dataset: &mut Dataset,
+        num_epochs: usize,
+        batch_size: usize,
+    ) -> Result<()> {
+        let mut paramAdam = ParamsAdamW::default();
+        paramAdam.lr = 0.001;
+        let mut optimizer = AdamW::new(self.var_map.all_vars(), paramAdam)?;
+
+        let (training_inputs, training_targets) =
+            dataset.get_sequential_training_batch(0, batch_size, self.cfg.n_ctx)?;
+        let mut count = 0;
+
+        loop {
+            let logits = self.forward(&training_inputs)?;
+            let (batch_size, context_size, embedding_size) = logits.shape().dims3()?;
+            let logits = logits.reshape((batch_size * context_size, embedding_size))?;
+            let targets = training_targets.reshape((batch_size * context_size,))?;
+            let loss = cross_entropy(&logits, &targets)?;
+            optimizer.backward_step(&loss)?;
+            info!("Loss: {}", loss.to_scalar::<f32>()?);
+            count += 1;
+            if count > 100000 {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn train(
+        &self,
+        dataset: &mut Dataset,
+        num_epochs: usize,
+        batch_size: usize,
+        running: &Arc<AtomicBool>,
+    ) -> Result<()> {
         info!(
             "var_map parameters size: {:?}",
             self.var_map.all_vars().len()
         );
         let mut paramAdam = ParamsAdamW::default();
-        paramAdam.lr = 0.0004;
+        paramAdam.lr = 0.0005;
         let mut optimizer = AdamW::new(self.var_map.all_vars(), paramAdam)?;
 
         for epoch in 0..num_epochs {
+            // 检查是否需要停止训练
+            if !running.load(Ordering::SeqCst) {
+                info!("收到停止信号,训练提前结束");
+                break;
+            }
+
             // 获取所有可能的训练窗口
             let total_windows = dataset.get_total_training_windows(self.cfg.n_ctx)?;
 
             // 对每个batch进行训练
             for batch_idx in (0..total_windows).step_by(batch_size) {
+                // 再次检查是否需要停止训练
+                if !running.load(Ordering::SeqCst) {
+                    info!("收到停止信号,当前batch训练完成后结束");
+                    return Ok(());
+                }
+
                 let actual_batch_size = batch_size.min(total_windows - batch_idx);
                 let (training_inputs, training_targets) = match dataset
                     .get_sequential_training_batch(batch_idx, actual_batch_size, self.cfg.n_ctx)
@@ -148,11 +200,8 @@ impl GPTModel {
                 optimizer.backward_step(&loss)?;
 
                 if batch_idx % 100 == 0 {
-                    // also print the current time
-                    let current_time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
                     info!(
-                        "Time: {} Epoch {} Batch {}/{} Loss: {}",
-                        current_time,
+                        "Epoch {} Batch {}/{} Loss: {}",
                         epoch,
                         batch_idx,
                         total_windows,

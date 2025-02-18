@@ -12,7 +12,7 @@ pub struct FeedForward {
 impl FeedForward {
     pub fn new(vb: VarBuilder, cfg: &Config) -> Result<Self> {
         let linear1 = linear(cfg.n_embd, 4 * cfg.n_embd, vb.pp("linear1"))?;
-        let relu = Activation::Relu;
+        let relu = Activation::Gelu;
         let linear2 = linear(4 * cfg.n_embd, cfg.n_embd, vb.pp("linear2"))?;
         let dropout = Dropout::new(cfg.dropout);
 

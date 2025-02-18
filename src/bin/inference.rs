@@ -1,4 +1,4 @@
-use std::{fs::File, io::Read};
+use std::{fs::File, io::Read, path::Path};
 
 use anyhow::Result;
 use candle_core::{utils, Device, Shape, Tensor};
@@ -8,11 +8,9 @@ use candle_mini_gpt::{
 };
 use tokenizers;
 
-
-
 pub fn main() -> Result<()> {
     env_logger::init();
-    let tokenizer = tokenizers::Tokenizer::from_file("leader_bpe_tokenizer.json").unwrap();
+    let tokenizer = tokenizers::Tokenizer::from_file("bpe_tokenizer_magical.json").unwrap();
     let vocab_size = tokenizer.get_vocab_size(true);
     println!("vocab_size: {}", vocab_size);
 
@@ -36,14 +34,16 @@ pub fn main() -> Result<()> {
         }
     };
 
-    let config = Config::new(true, device);
-    
+    let config = if Path::new("./config.json").exists() {
+        Config::load("config.json", device)?
+    } else {
+        Config::new(true, device)
+    };
 
-    let GPT = GPTModel::load(&config, "./gpt_model_final.bin", tokenizer)?;
+    let GPT = GPTModel::load(&config, "./gpt_model.bin", tokenizer)?;
 
-    let result = GPT.generate("这个世界有太多", 20, 0.3)?;
+    let result = GPT.generate("袁茵看了看窗外的世界，说到：", 20, 0.3)?;
     println!("result: {}", result);
 
-    
     Ok(())
 }
