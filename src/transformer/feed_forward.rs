@@ -27,7 +27,7 @@ impl FeedForward {
 }
 
 impl Module for FeedForward {
-    fn forward(&self, x: &Tensor) -> Result<Tensor> {
+    fn forward(&self, x: &Tensor) -> candle_core::Result<Tensor> {
         let x = self.linear1.forward(x)?;
         let x = self.relu.forward(&x)?;
         let x = self.linear2.forward(&x)?;

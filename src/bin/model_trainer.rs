@@ -8,6 +8,7 @@ use candle_mini_gpt::{
 };
 use chrono::Local;
 use env_logger::{Builder, WriteStyle};
+use log::{error, info};
 use tokenizers;
 
 fn load_file(path: &String) -> anyhow::Result<String> {
@@ -58,7 +59,12 @@ pub fn main() -> Result<()> {
         }
     };
 
-    let config = Config::new(true, device);
+    // try load config from file if failed new a config
+    let config = if let Ok(config) = Config::load("config.json", device.clone()) {
+        config
+    } else {
+        Config::new(true, device.clone())
+    };
 
     let mut dataset = load_dataset(&tokenizer, &config.device)?;
 

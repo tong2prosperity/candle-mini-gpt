@@ -36,7 +36,7 @@ impl Block {
 }
 
 impl Module for Block {
-    fn forward(&self, x: &Tensor) -> Result<Tensor> {
+    fn forward(&self, x: &Tensor) -> candle_core::Result<Tensor> {
         let rx = self.ln1.forward(x)?;
         let rx = self.self_attn.forward(&rx)?;
         let rx = rx.add(x)?;
@@ -187,7 +187,6 @@ impl GPTModel {
             let logits = self.forward(&input)?;
             let logits = logits.squeeze(0)?;
             let logits = logits.get(token_len - 1)?;
-
             let next_token = logits_processor.sample(&logits)?;
             debug!("next_token: {:?}", next_token);
             tokens.push(next_token);
@@ -200,7 +199,7 @@ impl GPTModel {
 }
 
 impl Module for GPTModel {
-    fn forward(&self, x: &Tensor) -> Result<Tensor> {
+    fn forward(&self, x: &Tensor) -> candle_core::Result<Tensor> {
         let shape_of_x = x.shape();
         let token_embedding = self.token_embedding.forward(x)?;
         let context_length = shape_of_x.dims2()?;

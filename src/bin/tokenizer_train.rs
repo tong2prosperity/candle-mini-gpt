@@ -102,12 +102,12 @@ fn main() -> Result<()> {
 
     let mut trainer = BpeTrainerBuilder::new()
     .show_progress(true)
-    .vocab_size(20_000)
+    .vocab_size(10_000)
     .min_frequency(0)
     .special_tokens(vec![
-        AddedToken::from(String::from("<s>"), true),
+        AddedToken::from(String::from("<bos>"), true),
+        AddedToken::from(String::from("<eos>"), true),
         AddedToken::from(String::from("<pad>"), true),
-        AddedToken::from(String::from("</s>"), true),
         AddedToken::from(String::from("<unk>"), true),
         AddedToken::from(String::from("<mask>"), true),
     ])
