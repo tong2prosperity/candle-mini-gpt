@@ -13,14 +13,14 @@ use anyhow::Result;
 const MAX_ITERS: usize = 1000;
 
 const BATCH_SIZE: usize = 12;
-const CONTEXT_SIZE: usize = 2048;
+const CONTEXT_SIZE: usize = 7;
 
 const LEARNING_RATE: f32 = 3e-4;
-const N_VOCAB: usize = 10000;
-const N_EMBED: usize = 768;
-const N_HEAD: usize = 12;
+const N_VOCAB: usize = 11;
+const N_EMBED: usize = 32;
+const N_HEAD: usize = 4;
 const N_LAYER: usize = 4;
-const DROPOUT: f32 = 0.0;
+const DROPOUT: f32 = 0.1;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConfigSerde {

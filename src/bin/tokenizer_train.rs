@@ -98,33 +98,21 @@ fn main() -> Result<()> {
 
     let mut trainer = BpeTrainerBuilder::new()
         .show_progress(true)
-        .vocab_size(10_000)
+        .vocab_size(11)
         .min_frequency(0)
         .special_tokens(vec![
             AddedToken::from(String::from("<bos>"), true),
             AddedToken::from(String::from("<eos>"), true),
-            AddedToken::from(String::from("<pad>"), true),
             AddedToken::from(String::from("<unk>"), true),
-            AddedToken::from(String::from("<mask>"), true),
         ])
         .build();
-    // let trainer = BpeTrainer::builder()
-    //     .vocab_size(30_000)                      // 词表大小
-    //     .min_frequency(2)                        // 最小频率
-    //     .show_progress(true)                     // 显示训练进度
-    //     .special_tokens(vec![                    // 特殊标记
-    //         AddedToken::from("<pad>", true),
-    //         AddedToken::from("<unk>", true),
-    //         AddedToken::from("<bos>", true),
-    //         AddedToken::from("<eos>", true),
-    //     ])
-    //     .build();
     let mut tokenizer = TokenizerBuilder::new()
         .with_model(BPE::default())
         .with_normalizer(Some(Sequence::new(vec![
             Strip::new(true, true).into(),
             NFKC.into(),
         ])))
+        //.with_pre_tokenizer(Some(ByteLevel::default()))
         .with_pre_tokenizer(Some(CharDelimiterSplit::new('\u{0}')))
         .with_post_processor(Some(ByteLevel::default()))
         .with_decoder(Some(ByteLevel::default()))
@@ -146,14 +134,14 @@ fn main() -> Result<()> {
     let mut files = collect_txt_files("res/articles");
 
     files.clear();
-    files.push("res/articles/super_magical_emperior.txt".to_string());
+    files.push("res/articles/pretrain.txt".to_string());
     println!("files: {:?}", files);
 
     // 训练模型
     tokenizer.train_from_files(&mut trainer, files).unwrap();
 
     // 保存训练好的 tokenizer
-    tokenizer.save("bpe_tokenizer_magical.json", true).unwrap();
+    tokenizer.save("mini_bpe.json", true).unwrap();
 
     Ok(())
 }

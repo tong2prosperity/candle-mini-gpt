@@ -44,8 +44,9 @@ rand = "0.9"
 log = "0.4"
 env_logger = "0.11"
 chrono = "0.4"
+ctrlc = "3.4"
 
 [features]
-default = ["cuda"]
+default = ["metal"]
 cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
 metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]

@@ -51,7 +51,7 @@ pub fn main() -> Result<()> {
         r.store(false, Ordering::SeqCst);
     })?;
 
-    let tokenizer = tokenizers::Tokenizer::from_file("bpe_tokenizer_magical.json").unwrap();
+    let tokenizer = tokenizers::Tokenizer::from_file("mini_bpe.json").unwrap();
     let vocab_size = tokenizer.get_vocab_size(true);
     println!("vocab_size: {}", vocab_size);
 
@@ -100,11 +100,12 @@ fn train_model(
     info!("开始训练模型...");
 
     while running.load(Ordering::SeqCst) {
-        match gpt.train(dataset, 10, 12, &running) {
+        match gpt.train(dataset, 1000, 1, &running) {
             Ok(_) => {
                 info!("训练完成一个周期");
                 config.save(&Path::new("config.json"))?;
-                gpt.save("gpt_model.bin")?;
+                gpt.save("gpt_model.safetensors")?;
+                break;
             }
             Err(e) => {
                 error!("训练出错: {}", e);
@@ -115,17 +116,17 @@ fn train_model(
 
     info!("保存模型和配置...");
     config.save(&Path::new("config.json"))?;
-    gpt.save("gpt_model.bin")?;
+    gpt.save("gpt_model.safetensors")?;
 
     info!("训练结束");
     Ok(())
 }
 
 fn load_dataset(tokenizer: &tokenizers::Tokenizer, device: &Device) -> Result<Dataset> {
-    let text = load_file(&"./res/articles/super_magical_emperior.txt".to_string())?;
+    let text = load_file(&"./res/articles/pretrain.txt".to_string())?;
     let encoded = tokenizer.encode(text, true).unwrap();
 
     let data = Tensor::from_slice(encoded.get_ids(), Shape::from(encoded.len()), device).unwrap();
-    let dataset = Dataset::new(data, 0.8);
+    let dataset = Dataset::new(data, 1.0);
     Ok(dataset)
 }

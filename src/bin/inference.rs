@@ -10,7 +10,7 @@ use tokenizers;
 
 pub fn main() -> Result<()> {
     env_logger::init();
-    let tokenizer = tokenizers::Tokenizer::from_file("bpe_tokenizer_magical.json").unwrap();
+    let tokenizer = tokenizers::Tokenizer::from_file("mini_bpe.json").unwrap();
     let vocab_size = tokenizer.get_vocab_size(true);
     println!("vocab_size: {}", vocab_size);
 
@@ -18,8 +18,8 @@ pub fn main() -> Result<()> {
         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         {
             if utils::metal_is_available() {
-                Device::new_metal(0)?
-                //Device::Cpu
+                //Device::new_metal(0)?
+                Device::Cpu
             } else {
                 Device::Cpu
             }
@@ -40,9 +40,9 @@ pub fn main() -> Result<()> {
         Config::new(true, device)
     };
 
-    let GPT = GPTModel::load(&config, "./gpt_model.bin", tokenizer)?;
+    let GPT = GPTModel::load(&config, "./gpt_model.safetensors", tokenizer)?;
 
-    let result = GPT.generate("袁茵看了看窗外的世界，说到：", 20, 0.3)?;
+    let result = GPT.generate("你不拿", 4, 0.1)?;
     println!("result: {}", result);
 
     Ok(())

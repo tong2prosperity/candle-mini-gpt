@@ -1,4 +1,5 @@
 use candle_core::{IndexOp, Result, Tensor};
+use log::info;
 use rand::rngs::ThreadRng;
 use rand::Rng;
 
@@ -13,10 +14,11 @@ impl Dataset {
     pub fn new(data: Tensor, training_ratio: f64) -> Self {
         let data_size = *data.shape().dims().first().unwrap();
         let training_size = (data_size as f64 * training_ratio) as usize;
-        let training_data = data.i(0..training_size).unwrap();
 
+        let training_data = data.i(0..training_size).unwrap();
         let validation_size = data_size - training_size;
-        let validation_data = data.i(0..validation_size).unwrap();
+        let validation_data = data.i(training_size..data_size).unwrap();
+
         let rng: ThreadRng = rand::thread_rng();
 
         Self {
@@ -57,6 +59,7 @@ impl Dataset {
     // 计算总共可能的训练窗口数量
     pub fn get_total_training_windows(&self, context_size: usize) -> Result<usize> {
         let total_tokens = self.training_data.shape().dims1()?;
+        info!("total tokens is {}", total_tokens);
         Ok(total_tokens - context_size + 1)
     }
 
@@ -66,7 +69,7 @@ impl Dataset {
         start_idx: usize,
         batch_size: usize,
         context_size: usize,
-    ) -> Result<(Tensor, Tensor)> {
+    ) -> Result<Option<(Tensor, Tensor)>> {
         let mut input_indices: Vec<Tensor> = Vec::with_capacity(batch_size);
         let mut target_indices: Vec<Tensor> = Vec::with_capacity(batch_size);
         // let mut input_indices_tensor = Tensor::zeros((batch_size, context_size), DType::I32)?;
@@ -77,17 +80,20 @@ impl Dataset {
             let window_end = window_start + context_size;
 
             // 确保不会超出训练数据范围
-            if window_end > self.training_data.shape().dims1()? {
+            if window_end >= self.training_data.shape().dims1()? {
                 break;
             }
 
             input_indices.push(self.training_data.i(window_start..window_end)?);
             target_indices.push(self.training_data.i((window_start + 1)..(window_end + 1))?);
         }
+        if input_indices.is_empty() {
+            return Ok(None);
+        }
 
         let inputs = Tensor::stack(&input_indices, 0)?;
         let targets = Tensor::stack(&target_indices, 0)?;
 
-        Ok((inputs, targets))
+        Ok(Some((inputs, targets)))
     }
 }
