@@ -41,6 +41,24 @@ impl Block {
             cfg: cfg.clone(),
         })
     }
+
+    pub fn forward_with_cache(&self, x: &Tensor, k_cache: Option<&Tensor>, v_cache: Option<&Tensor>) -> Result<(Tensor, Tensor, Tensor)> {
+        let residual = x.clone();
+        let x_ln1 = self.ln1.forward(x)?;
+        
+        // 使用带缓存的注意力机制
+        let (attn_output, k_out, v_out) = self.self_attn.forward_with_cache(&x_ln1, k_cache, v_cache)?;
+        
+        let x = attn_output.add(&residual)?;
+        let residual = x.clone();
+        
+        let x_ln2 = self.ln2.forward(&x)?;
+        let ff_output = self.feed_forward.forward(&x_ln2)?;
+        
+        let x = ff_output.add(&residual)?;
+        
+        Ok((x, k_out, v_out))
+    }
 }
 
 impl Module for Block {
@@ -57,13 +75,13 @@ impl Module for Block {
 
 pub struct GPTModel {
     token_embedding: Embedding,
-    position_embedding: Embedding,
     blocks: Vec<Block>,
     layer_norm: LayerNorm,
     lm_head: Linear,
     cfg: Config,
     var_map: Option<VarMap>,
     tokenizer: Tokenizer,
+    kv_cache: Option<Vec<(Tensor, Tensor)>>,
 }
 
 impl GPTModel {
@@ -87,7 +105,6 @@ impl GPTModel {
         tokenizer: Tokenizer,
     ) -> Result<Self> {
         let token_embedding = embedding(cfg.n_vocab, cfg.n_embd, vb.pp("token_embedding"))?;
-        let position_embedding = embedding(cfg.n_ctx, cfg.n_embd, vb.pp("position_embedding"))?;
         let blocks = (0..cfg.n_layer)
             .map(|i| Block::new(vb.pp(&format!("blocks.{}", i)), cfg))
             .collect::<Result<Vec<_>>>()?;
@@ -96,13 +113,13 @@ impl GPTModel {
 
         Ok(Self {
             token_embedding,
-            position_embedding,
             blocks,
             layer_norm: ln_f,
             lm_head,
             cfg: cfg.clone(),
             var_map,
             tokenizer,
+            kv_cache: None,
         })
     }
 
@@ -227,48 +244,84 @@ impl GPTModel {
             .get_ids()
             .to_vec();
         let mut generated_tokens = 0usize;
+        
+        // 初始化KV缓存
+        let mut kv_cache: Option<Vec<(Tensor, Tensor)>> = None;
 
         let mut logits_processor = LogitsProcessor::new(0, Some(temperature), Some(0.6));
 
         for _ in 0..max_new_tokens {
-            // cap the tokens to context size
-            let token_len = tokens.len();
-            if token_len > self.cfg.n_ctx {
-                tokens = tokens
-                    .into_iter()
-                    .skip(token_len - self.cfg.n_ctx)
-                    .collect();
-            }
-            let input = Tensor::new(tokens.as_slice(), &self.cfg.device)?.unsqueeze(0)?;
-            // temperature sampling
-            let logits = self.forward(&input)?;
-            let logits = logits.squeeze(0)?;
-            let logits = logits.get(token_len - 1)?;
-            let next_token = logits_processor.sample(&logits)?;
-            debug!("next_token: {:?}", next_token);
+            // 使用KV缓存进行前向传播
+            let (logits, new_kv_cache) = if let Some(cache) = &kv_cache {
+                // 只处理最后一个token
+                let input = Tensor::new(&[tokens[tokens.len() - 1]], &self.cfg.device)?.unsqueeze(0)?;
+                self.forward_with_cache(&input, cache, true)?
+            } else {
+                // 首次处理所有token
+                let input = Tensor::new(tokens.as_slice(), &self.cfg.device)?.unsqueeze(0)?;
+                self.forward_with_cache(&input, &[], false)?
+            };
+            
+            // 更新KV缓存
+            kv_cache = Some(new_kv_cache);
+            
+            // 获取最后一个token的logits
+            let next_token_logits = if kv_cache.is_some() {
+                logits.squeeze(0)?
+            } else {
+                let logits = logits.squeeze(0)?;
+                logits.get(tokens.len() - 1)?
+            };
+            
+            // 采样下一个token
+            let next_token = logits_processor.sample(&next_token_logits)?;
             tokens.push(next_token);
             generated_tokens += 1;
         }
+        
         info!("generated_tokens: {}", generated_tokens);
         let decoded = self.tokenizer.decode(tokens.as_slice(), true).unwrap();
         Ok(decoded)
+    }
+    
+    // 添加带KV缓存的前向传播方法
+    fn forward_with_cache(&self, x: &Tensor, kv_cache: &[(Tensor, Tensor)], use_cache: bool) -> Result<(Tensor, Vec<(Tensor, Tensor)>)> {
+        let token_embedding = self.token_embedding.forward(x)?;
+        let mut x = token_embedding;
+        
+        let mut new_kv_cache = Vec::with_capacity(self.blocks.len());
+        
+        for (i, block) in self.blocks.iter().enumerate() {
+            // 使用带缓存的前向传播
+            let (block_output, k_cache, v_cache) = if use_cache {
+                block.forward_with_cache(&x, Some(&kv_cache[i].0), Some(&kv_cache[i].1))?
+            } else {
+                block.forward_with_cache(&x, None, None)?
+            };
+            
+            x = block_output;
+            new_kv_cache.push((k_cache, v_cache));
+        }
+        
+        let x_norm = self.layer_norm.forward(&x)?;
+        let logits = self.lm_head.forward(&x_norm)?;
+        
+        Ok((logits, new_kv_cache))
     }
 }
 
 impl Module for GPTModel {
     fn forward(&self, x: &Tensor) -> candle_core::Result<Tensor> {
-        let shape_of_x = x.shape();
         let token_embedding = self.token_embedding.forward(x)?;
-        let context_length = shape_of_x.dims2()?;
-        let pos_tensor = Tensor::arange(0, context_length.1 as u32, x.device())?;
-        let position_embedding = self.position_embedding.forward(&pos_tensor)?;
-        let mut x = token_embedding.broadcast_add(&position_embedding)?;
+        let mut x = token_embedding;
+        
         for block in self.blocks.iter() {
             x = block.forward(&x)?;
         }
+        
         let x_norm = self.layer_norm.forward(&x)?;
-
         let logits = self.lm_head.forward(&x_norm)?;
+        
         Ok(logits)
     }
 }

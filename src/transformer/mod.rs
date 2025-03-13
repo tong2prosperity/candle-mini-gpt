@@ -2,6 +2,7 @@ pub mod feed_forward;
 pub mod gpt;
 pub mod head;
 pub mod multi_head;
+pub mod rotary_emb;
 
 use std::{fs::File, path};
 
@@ -31,6 +32,8 @@ pub struct ConfigSerde {
     pub n_ctx: usize,
     pub dropout: f32,
     pub training: bool,
+    pub max_position_embeddings: usize,
+    pub rope_theta: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -43,6 +46,8 @@ pub struct Config {
     pub dropout: f32,
     pub training: bool,
     pub device: Device,
+    pub max_position_embeddings: usize,
+    pub rope_theta: f32,
 }
 
 impl Config {
@@ -56,6 +61,8 @@ impl Config {
             dropout: DROPOUT,
             training: training,
             device,
+            max_position_embeddings: 8192,
+            rope_theta: 10000.0,
         }
     }
 
@@ -72,6 +79,8 @@ impl Config {
             dropout: config.dropout,
             training: config.training,
             device: dev,
+            max_position_embeddings: config.max_position_embeddings,
+            rope_theta: config.rope_theta,
         })
     }
 
@@ -85,6 +94,8 @@ impl Config {
             n_ctx: self.n_ctx,
             dropout: self.dropout,
             training: self.training,
+            max_position_embeddings: self.max_position_embeddings,
+            rope_theta: self.rope_theta,
         };
         serde_json::to_writer(file, &config)?;
         Ok(())

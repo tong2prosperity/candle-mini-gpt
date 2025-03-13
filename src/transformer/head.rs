@@ -12,6 +12,7 @@ pub struct Head {
     dropout_p: f64,
     training: bool,
     neg_inf: Tensor,
+    head_size: usize,
 }
 
 impl Head {
@@ -34,20 +35,25 @@ impl Head {
             dropout_p: cfg.dropout as f64,
             training: false,
             neg_inf,
+            head_size,
         })
     }
 
     pub fn set_training(&mut self, training: bool) {
         self.training = training;
     }
-}
 
-impl Module for Head {
-    fn forward(&self, x: &Tensor) -> Result<Tensor> {
-        let (_, seq_len, n_embed) = x.dims3()?;
-        // Get key, query and value projections
+    
+    pub fn get_qkv(&self, x: &Tensor) -> Result<(Tensor, Tensor, Tensor)> {
         let k = self.key.forward(x)?;
         let q = self.query.forward(x)?;
+        let v = self.value.forward(x)?;
+        Ok((q, k, v))
+    }
+    
+    
+    pub fn attention_with_qkv(&self, q: &Tensor, k: &Tensor, v: &Tensor) -> Result<Tensor> {
+        let (_, seq_len, _) = q.dims3()?;
 
         let mut weight = ((q.matmul(&k.transpose(D::Minus2, D::Minus1)?))? * self.scale)?;
 
@@ -63,11 +69,16 @@ impl Module for Head {
 
         // Apply softmax and dropout
         weight = candle_nn::ops::softmax(&masked_weight, D::Minus1)?;
-        //weight = candle_nn::ops::dropout(&weight, self.dropout_p as f32)?;
 
         // Compute output
-        let v = self.value.forward(&x)?;
         let output = weight.matmul(&v)?;
         Ok(output)
+    }
+}
+
+impl Module for Head {
+    fn forward(&self, x: &Tensor) -> Result<Tensor> {
+        let (q, k, v) = self.get_qkv(x)?;
+        self.attention_with_qkv(&q, &k, &v)
     }
 }
