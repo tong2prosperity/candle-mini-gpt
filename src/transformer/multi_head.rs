@@ -1,6 +1,6 @@
 use candle_core::{DType, Module, Result, Tensor, D};
 use candle_nn::{linear, Linear, VarBuilder};
-
+use log::{error, info};
 use super::head::Head;
 use super::Config;
 use super::rotary_emb::RotaryEmbedding;
@@ -46,7 +46,7 @@ impl MultiHeadAttention {
         }
     }
 
-    // 添加带KV缓存的前向传播方法
+    // 修复带KV缓存的前向传播方法
     pub fn forward_with_cache(&self, x: &Tensor, k_cache: Option<&Tensor>, v_cache: Option<&Tensor>) -> Result<(Tensor, Tensor, Tensor)> {
         let (batch_size, seq_len, _) = x.dims3()?;
         
@@ -70,41 +70,48 @@ impl MultiHeadAttention {
         let v = Tensor::cat(&all_v, D::Minus1)?.reshape((batch_size, seq_len, self.heads.len(), self.head_size))?
             .permute((0, 2, 1, 3))?;
 
+        // 计算旋转位置编码的偏移量
+        let offset = if let Some(k_prev) = k_cache {
+            k_prev.dim(2)?
+        } else {
+            0
+        };
+        info!("kv cache offset on MHA calc: {}", offset);
+        // 应用旋转位置编码
         let (q_rot, k_rot) = if let Some(rotary) = &self.rotary_emb {
-            let offset = if k_cache.is_some() {
-                k_cache.unwrap().dim(2)? // 使用缓存的序列长度作为偏移量
-            } else {
-                0
-            };
             rotary.apply_rotary_emb_qkv(&q.contiguous()?, &k.contiguous()?, offset)?
         } else {
-            (q, k)
+            error!("rotary emb is empty");
+            (q.contiguous()?, k.contiguous()?)
         };
         
         // 合并缓存的k和v（如果有）
         let (k_combined, v_combined) = if let (Some(k_prev), Some(v_prev)) = (k_cache, v_cache) {
             (Tensor::cat(&[k_prev, &k_rot], 2)?, Tensor::cat(&[v_prev, &v], 2)?)
         } else {
-            (k_rot.clone(), v.clone())
+            (k_rot, v)
         };
         
-        // 计算注意力
-        let mut head_outputs = Vec::with_capacity(self.heads.len());
+        // 计算注意力输出
+        let mut outputs = Vec::with_capacity(self.heads.len());
         for i in 0..self.heads.len() {
             let q_head = q_rot.narrow(1, i, 1)?;
             let k_head = k_combined.narrow(1, i, 1)?;
             let v_head = v_combined.narrow(1, i, 1)?;
             
             let output = self.heads[i].attention_with_qkv(&q_head, &k_head, &v_head)?;
-            head_outputs.push(output);
+            outputs.push(output);
         }
         
         // 合并所有头的输出
-        let concat = Tensor::cat(&head_outputs, D::Minus1)?;
+        let concat = Tensor::cat(&outputs, D::Minus1)?;
+        
+        // 重塑为原始形状
+        //let out = concat.permute((0, 2, 1, 3))?.reshape((batch_size, seq_len, self.heads.len() * self.head_size))?;
+        let out = concat.squeeze(1)?;
         
         // 应用最终投影
-        let out = self.proj.forward(&concat)?;
-        let out = concat.squeeze(1)?; // [batch, seq_len, n_embd]
+        let out = self.proj.forward(&out)?;
         
         Ok((out, k_combined, v_combined))
     }

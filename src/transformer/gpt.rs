@@ -43,21 +43,14 @@ impl Block {
     }
 
     pub fn forward_with_cache(&self, x: &Tensor, k_cache: Option<&Tensor>, v_cache: Option<&Tensor>) -> Result<(Tensor, Tensor, Tensor)> {
-        let residual = x.clone();
         let x_ln1 = self.ln1.forward(x)?;
-        
         // 使用带缓存的注意力机制
         let (attn_output, k_out, v_out) = self.self_attn.forward_with_cache(&x_ln1, k_cache, v_cache)?;
-        
-        let x = attn_output.add(&residual)?;
-        let residual = x.clone();
-        
-        let x_ln2 = self.ln2.forward(&x)?;
+        let atten_x = attn_output.add(&x)?;
+        let x_ln2 = self.ln2.forward(&atten_x)?;
         let ff_output = self.feed_forward.forward(&x_ln2)?;
-        
-        let x = ff_output.add(&residual)?;
-        
-        Ok((x, k_out, v_out))
+        let output = ff_output.add(&x)?;
+        Ok((output, k_out, v_out))
     }
 }
 
@@ -253,7 +246,6 @@ impl GPTModel {
         let mut first_infer = true;
 
         for _ in 0..max_new_tokens {
-
             // 使用KV缓存进行前向传播
             let (logits, new_kv_cache) = if let Some(cache) = &kv_cache {
                 // 只处理最后一个token
@@ -267,26 +259,16 @@ impl GPTModel {
             
             // 更新KV缓存
             kv_cache = Some(new_kv_cache);
-
-            info!("the shape of the logits is {:?}, logits data {:?}", logits.shape(), logits);
-            if let Ok(vec2d) = logits.to_vec3::<f32>() {
-                info!("Logits content:");
-                for row in vec2d {
-                    info!("{:?}", row);
-                }
-            }else {
-                error!("Logits data is not a vector");
-            }
             
-            let index = if first_infer {
-                tokens.len() - 1
-            }else {
-                0
-            };
+            // 获取最后一个token的logits
             let logits = logits.squeeze(0)?;
-            let next_token_logits= logits.get(index)?;
-            
-
+            let next_token_logits = if first_infer {
+                // 首次推理时，获取序列中最后一个token的logits
+                logits.get(tokens.len() - 1)?
+            } else {
+                // 后续推理时，获取新token的logits（索引为0，因为每次只输入一个token）
+                logits.get(0)?
+            };
             
             // 采样下一个token
             let next_token = logits_processor.sample(&next_token_logits)?;
@@ -333,7 +315,7 @@ impl GPTModel {
         Ok(decoded)
     }
     
-    // 添加带KV缓存的前向传播方法
+    // 修复带KV缓存的前向传播方法
     fn forward_with_cache(&self, x: &Tensor, kv_cache: &[(Tensor, Tensor)], use_cache: bool) -> Result<(Tensor, Vec<(Tensor, Tensor)>)> {
         let token_embedding = self.token_embedding.forward(x)?;
         let mut x = token_embedding;
@@ -342,7 +324,7 @@ impl GPTModel {
         
         for (i, block) in self.blocks.iter().enumerate() {
             // 使用带缓存的前向传播
-            let (block_output, k_cache, v_cache) = if use_cache {
+            let (block_output, k_cache, v_cache) = if use_cache && !kv_cache.is_empty() {
                 block.forward_with_cache(&x, Some(&kv_cache[i].0), Some(&kv_cache[i].1))?
             } else {
                 block.forward_with_cache(&x, None, None)?

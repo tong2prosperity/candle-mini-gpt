@@ -42,7 +42,7 @@ pub fn main() -> Result<()> {
 
     let GPT = GPTModel::load(&config, "./gpt_model.safetensors", tokenizer)?;
 
-    let result = GPT.generate_no_cache("你不拿", 4, 0.1)?;
+    let result = GPT.generate("你不拿", 5, 0.1)?;
     println!("result: {}", result);
 
     Ok(())
