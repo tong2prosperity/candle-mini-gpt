@@ -43,25 +43,25 @@ impl Block {
     }
 
     pub fn forward_with_cache(&self, x: &Tensor, k_cache: Option<&Tensor>, v_cache: Option<&Tensor>) -> Result<(Tensor, Tensor, Tensor)> {
-        let x_ln1 = self.ln1.forward(x)?;
+        let ln1 = self.ln1.forward(x)?;
         // 使用带缓存的注意力机制
-        let (attn_output, k_out, v_out) = self.self_attn.forward_with_cache(&x_ln1, k_cache, v_cache)?;
+        let (attn_output, k_out, v_out) = self.self_attn.forward_with_cache(&ln1, k_cache, v_cache)?;
         let atten_x = attn_output.add(&x)?;
         let x_ln2 = self.ln2.forward(&atten_x)?;
         let ff_output = self.feed_forward.forward(&x_ln2)?;
-        let output = ff_output.add(&x)?;
+        let output = ff_output.add(&atten_x)?;
         Ok((output, k_out, v_out))
     }
 }
 
 impl Module for Block {
     fn forward(&self, x: &Tensor) -> candle_core::Result<Tensor> {
-        let rx = self.ln1.forward(x)?;
-        let rx = self.self_attn.forward(&rx)?;
-        let rx = rx.add(x)?;
-        let rx = self.ln2.forward(&rx)?;
-        let rx = self.feed_forward.forward(&rx)?;
-        let rx = rx.add(x)?;
+        let ln1 = self.ln1.forward(x)?;
+        let sa = self.self_attn.forward(&ln1)?;
+        let rx = x.add(&sa)?;
+        let ln2 = self.ln2.forward(&rx)?;
+        let ffw = self.feed_forward.forward(&ln2)?;
+        let rx = rx.add(&ffw)?;
         Ok(rx)
     }
 }
@@ -236,49 +236,45 @@ impl GPTModel {
             .unwrap()
             .get_ids()
             .to_vec();
-        let mut generated_tokens = 0usize;
+        let input_len = tokens.len();
         
         // 初始化KV缓存
         let mut kv_cache: Option<Vec<(Tensor, Tensor)>> = None;
-
         let mut logits_processor = LogitsProcessor::new(0, Some(temperature), Some(0.6));
 
-        let mut first_infer = true;
-
-        for _ in 0..max_new_tokens {
-            // 使用KV缓存进行前向传播
+        // 首次处理完整输入序列
+        let input_tensor = Tensor::new(tokens.as_slice(), &self.cfg.device)?.unsqueeze(0)?;
+        let (logits, new_kv_cache) = self.forward_with_cache(&input_tensor, &[], false)?;
+        kv_cache = Some(new_kv_cache);
+        
+        // 获取最后一个token的logits并采样
+        let logits = logits.squeeze(0)?;
+        let next_token_logits = logits.get(input_len - 1)?;
+        let next_token = logits_processor.sample(&next_token_logits)?;
+        tokens.push(next_token);
+        
+        // 继续生成剩余的token
+        for _ in 1..max_new_tokens {
+            // 只处理最后一个token
+            let last_token = Tensor::new(&[tokens[tokens.len() - 1]], &self.cfg.device)?.unsqueeze(0)?;
+            
+            // 使用缓存进行前向传播
             let (logits, new_kv_cache) = if let Some(cache) = &kv_cache {
-                // 只处理最后一个token
-                let input = Tensor::new(&[tokens[tokens.len() - 1]], &self.cfg.device)?.unsqueeze(0)?;
-                self.forward_with_cache(&input, cache, true)?
+                self.forward_with_cache(&last_token, cache, true)?
             } else {
-                // 首次处理所有token
-                let input = Tensor::new(tokens.as_slice(), &self.cfg.device)?.unsqueeze(0)?;
-                self.forward_with_cache(&input, &[], false)?
+                self.forward_with_cache(&last_token, &[], false)?
             };
             
             // 更新KV缓存
             kv_cache = Some(new_kv_cache);
             
-            // 获取最后一个token的logits
+            // 获取logits并采样下一个token
             let logits = logits.squeeze(0)?;
-            let next_token_logits = if first_infer {
-                // 首次推理时，获取序列中最后一个token的logits
-                logits.get(tokens.len() - 1)?
-            } else {
-                // 后续推理时，获取新token的logits（索引为0，因为每次只输入一个token）
-                logits.get(0)?
-            };
-            
-            // 采样下一个token
+            let next_token_logits = logits.get(0)?;  // 因为只输入了一个token，所以索引为0
             let next_token = logits_processor.sample(&next_token_logits)?;
-            info!("Token: {:?}", next_token);
             tokens.push(next_token);
-            generated_tokens += 1;
-            first_infer = false;
         }
         
-        info!("generated_tokens: {}", generated_tokens);
         let decoded = self.tokenizer.decode(tokens.as_slice(), true).unwrap();
         Ok(decoded)
     }
@@ -324,14 +320,15 @@ impl GPTModel {
         
         for (i, block) in self.blocks.iter().enumerate() {
             // 使用带缓存的前向传播
-            let (block_output, k_cache, v_cache) = if use_cache && !kv_cache.is_empty() {
-                block.forward_with_cache(&x, Some(&kv_cache[i].0), Some(&kv_cache[i].1))?
+            let (k_cache, v_cache) = if use_cache && i < kv_cache.len() {
+                (Some(&kv_cache[i].0), Some(&kv_cache[i].1))
             } else {
-                block.forward_with_cache(&x, None, None)?
+                (None, None)
             };
             
+            let (block_output, k_out, v_out) = block.forward_with_cache(&x, k_cache, v_cache)?;
             x = block_output;
-            new_kv_cache.push((k_cache, v_cache));
+            new_kv_cache.push((k_out, v_out));
         }
         
         let x_norm = self.layer_norm.forward(&x)?;
