@@ -40,7 +40,7 @@ pub fn main() -> Result<()> {
             )
         })
         .write_style(WriteStyle::Always)
-        .filter_level(log::LevelFilter::Debug)
+        .filter_level(log::LevelFilter::Info)
         .init();
 
     let running = Arc::new(AtomicBool::new(true));

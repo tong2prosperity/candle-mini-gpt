@@ -1,5 +1,6 @@
 use candle_core::{DType, Device, IndexOp, Module, Result, Shape, Tensor, D};
 use candle_nn::{linear, linear_no_bias, Linear, VarBuilder};
+use log::debug;
 
 use super::Config;
 
@@ -53,25 +54,63 @@ impl Head {
     
     
     pub fn attention_with_qkv(&self, q: &Tensor, k: &Tensor, v: &Tensor) -> Result<Tensor> {
-        let (_, seq_len, _) = q.dims3()?;
-
-        let mut weight = ((q.matmul(&k.transpose(D::Minus2, D::Minus1)?))? * self.scale)?;
-
-        // Apply causal mask
-        let masked_weight = self
-            .tril
-            .i((..seq_len, ..seq_len))?
-            .broadcast_as(Shape::from(weight.shape()))?
-            .where_cond(
-                &weight,
-                &self.neg_inf.broadcast_as(Shape::from(weight.shape()))?,
-            )?;
-
-        // Apply softmax and dropout
-        weight = candle_nn::ops::softmax(&masked_weight, D::Minus1)?;
-
-        // Compute output
-        let output = weight.matmul(&v)?;
+        // 确保张量是连续的
+        let q = q.contiguous()?;
+        let k = k.contiguous()?;
+        let v = v.contiguous()?;
+        
+        // 获取形状信息
+        let q_shape = q.shape();
+        let k_shape = k.shape();
+        let v_shape = v.shape();
+        
+        debug!("q shape: {:?}, k shape: {:?}, v shape: {:?}", q_shape, k_shape, v_shape);
+        
+        // 获取维度
+        let (batch_size, n_heads, seq_len, head_size) = q.dims4()?;
+        let k_seq_len = k.dim(2)?;
+        
+        // 重塑张量以便进行矩阵乘法
+        let q_2d = q.reshape((batch_size * n_heads, seq_len, head_size))?;
+        let k_2d = k.reshape((batch_size * n_heads, k_seq_len, head_size))?;
+        let v_2d = v.reshape((batch_size * n_heads, v.dim(2)?, v.dim(3)?))?;
+        
+        // 计算注意力分数
+        let mut weight = (q_2d.matmul(&k_2d.transpose(D::Minus2, D::Minus1)?)? * self.scale)?;
+        
+        // 获取实际的序列长度
+        let actual_seq_len = weight.dim(1)?;
+        let actual_k_seq_len = weight.dim(2)?;
+        
+        // 应用因果掩码
+        if actual_seq_len <= self.tril.dim(0)? && actual_k_seq_len <= self.tril.dim(1)? {
+            let masked_weight = self
+                .tril
+                .i((..actual_seq_len, ..actual_k_seq_len))?
+                .broadcast_as(Shape::from(weight.shape()))?
+                .where_cond(
+                    &weight,
+                    &self.neg_inf.broadcast_as(Shape::from(weight.shape()))?,
+                )?;
+            weight = candle_nn::ops::softmax(&masked_weight, D::Minus1)?;
+        } else {
+            // 如果序列长度超过了预定义的tril大小，我们需要创建一个新的掩码
+            let new_tril = Tensor::tril2(actual_k_seq_len, DType::U32, weight.device())?;
+            let masked_weight = new_tril
+                .broadcast_as(Shape::from(weight.shape()))?
+                .where_cond(
+                    &weight,
+                    &self.neg_inf.broadcast_as(Shape::from(weight.shape()))?,
+                )?;
+            weight = candle_nn::ops::softmax(&masked_weight, D::Minus1)?;
+        }
+        
+        // 计算输出
+        let output = weight.matmul(&v_2d)?;
+        
+        // 重塑回原始形状
+        let output = output.reshape((batch_size, n_heads, seq_len, v.dim(3)?))?;
+        
         Ok(output)
     }
 }

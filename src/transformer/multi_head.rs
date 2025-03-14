@@ -69,31 +69,30 @@ impl MultiHeadAttention {
             .permute((0, 2, 1, 3))?;
         let v = Tensor::cat(&all_v, D::Minus1)?.reshape((batch_size, seq_len, self.heads.len(), self.head_size))?
             .permute((0, 2, 1, 3))?;
-        
-        // 合并缓存的k和v（如果有）
-        let (k_combined, v_combined) = if let (Some(k_prev), Some(v_prev)) = (k_cache, v_cache) {
-            (Tensor::cat(&[k_prev, &k], 2)?, Tensor::cat(&[v_prev, &v], 2)?)
-        } else {
-            (k.clone(), v.clone())
-        };
-        
-        // 应用旋转位置编码
+
         let (q_rot, k_rot) = if let Some(rotary) = &self.rotary_emb {
             let offset = if k_cache.is_some() {
                 k_cache.unwrap().dim(2)? // 使用缓存的序列长度作为偏移量
             } else {
                 0
             };
-            rotary.apply_rotary_emb_qkv(&q, &k_combined, offset)?
+            rotary.apply_rotary_emb_qkv(&q.contiguous()?, &k.contiguous()?, offset)?
         } else {
-            (q, k_combined.clone())
+            (q, k)
+        };
+        
+        // 合并缓存的k和v（如果有）
+        let (k_combined, v_combined) = if let (Some(k_prev), Some(v_prev)) = (k_cache, v_cache) {
+            (Tensor::cat(&[k_prev, &k_rot], 2)?, Tensor::cat(&[v_prev, &v], 2)?)
+        } else {
+            (k_rot.clone(), v.clone())
         };
         
         // 计算注意力
         let mut head_outputs = Vec::with_capacity(self.heads.len());
         for i in 0..self.heads.len() {
             let q_head = q_rot.narrow(1, i, 1)?;
-            let k_head = k_rot.narrow(1, i, 1)?;
+            let k_head = k_combined.narrow(1, i, 1)?;
             let v_head = v_combined.narrow(1, i, 1)?;
             
             let output = self.heads[i].attention_with_qkv(&q_head, &k_head, &v_head)?;
@@ -105,6 +104,7 @@ impl MultiHeadAttention {
         
         // 应用最终投影
         let out = self.proj.forward(&concat)?;
+        let out = concat.squeeze(1)?; // [batch, seq_len, n_embd]
         
         Ok((out, k_combined, v_combined))
     }
@@ -136,9 +136,9 @@ impl Module for MultiHeadAttention {
         
         // 应用旋转位置编码
         let (q_rot, k_rot) = if let Some(rotary) = &self.rotary_emb {
-            rotary.apply_rotary_emb_qkv(&q, &k, 0)?
+            rotary.apply_rotary_emb_qkv(&q.contiguous()?, &k.contiguous()?, 0)?
         } else {
-            (q, k)
+            (q.contiguous()?, k.contiguous()?)
         };
         
         // 计算注意力
@@ -154,6 +154,7 @@ impl Module for MultiHeadAttention {
         
         // 合并所有头的输出
         let concat = Tensor::cat(&head_outputs, D::Minus1)?;
+        let concat = concat.squeeze(1)?; // [batch, seq_len, n_embd]
         
         // 应用最终投影
         let out = self.proj.forward(&concat)?;

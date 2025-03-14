@@ -250,7 +250,10 @@ impl GPTModel {
 
         let mut logits_processor = LogitsProcessor::new(0, Some(temperature), Some(0.6));
 
+        let mut first_infer = true;
+
         for _ in 0..max_new_tokens {
+
             // 使用KV缓存进行前向传播
             let (logits, new_kv_cache) = if let Some(cache) = &kv_cache {
                 // 只处理最后一个token
@@ -264,22 +267,68 @@ impl GPTModel {
             
             // 更新KV缓存
             kv_cache = Some(new_kv_cache);
+
+            info!("the shape of the logits is {:?}, logits data {:?}", logits.shape(), logits);
+            if let Ok(vec2d) = logits.to_vec3::<f32>() {
+                info!("Logits content:");
+                for row in vec2d {
+                    info!("{:?}", row);
+                }
+            }else {
+                error!("Logits data is not a vector");
+            }
             
-            // 获取最后一个token的logits
-            let next_token_logits = if kv_cache.is_some() {
-                logits.squeeze(0)?
-            } else {
-                let logits = logits.squeeze(0)?;
-                logits.get(tokens.len() - 1)?
+            let index = if first_infer {
+                tokens.len() - 1
+            }else {
+                0
             };
+            let logits = logits.squeeze(0)?;
+            let next_token_logits= logits.get(index)?;
+            
+
             
             // 采样下一个token
             let next_token = logits_processor.sample(&next_token_logits)?;
+            info!("Token: {:?}", next_token);
+            tokens.push(next_token);
+            generated_tokens += 1;
+            first_infer = false;
+        }
+        
+        info!("generated_tokens: {}", generated_tokens);
+        let decoded = self.tokenizer.decode(tokens.as_slice(), true).unwrap();
+        Ok(decoded)
+    }
+
+    pub fn generate_no_cache(&self, input: &str, max_new_tokens: usize, temperature: f64) -> Result<String> {
+        let mut tokens = self
+            .tokenizer
+            .encode(input, true)
+            .unwrap()
+            .get_ids()
+            .to_vec();
+        let mut generated_tokens = 0usize;
+        
+        let mut logits_processor = LogitsProcessor::new(0, Some(temperature), Some(0.6));
+
+        for _ in 0..max_new_tokens {
+            // 每次都处理完整的token序列
+            let input = Tensor::new(tokens.as_slice(), &self.cfg.device)?.unsqueeze(0)?;
+            let logits = self.forward(&input)?;
+            
+            // 只关注最后一个位置的logits
+            let logits = logits.squeeze(0)?;
+            let next_token_logits = logits.get(tokens.len() - 1)?;
+            
+            // 采样下一个token
+            let next_token = logits_processor.sample(&next_token_logits)?;
+            info!("Token: {:?}", next_token);
             tokens.push(next_token);
             generated_tokens += 1;
         }
         
-        info!("generated_tokens: {}", generated_tokens);
+        info!("generated_tokens without cache: {}", generated_tokens);
         let decoded = self.tokenizer.decode(tokens.as_slice(), true).unwrap();
         Ok(decoded)
     }
