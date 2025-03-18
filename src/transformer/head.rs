@@ -82,11 +82,13 @@ impl Head {
         let actual_seq_len = weight.dim(1)?;
         let actual_k_seq_len = weight.dim(2)?;
         
-        // 应用因果掩码
-        if actual_seq_len <= self.tril.dim(0)? && actual_k_seq_len <= self.tril.dim(1)? {
+
+        if actual_seq_len == 1 {
+            weight = candle_nn::ops::softmax(&weight, D::Minus1)?;
+        } else if actual_seq_len <= self.tril.dim(0)? {
             let masked_weight = self
                 .tril
-                .i((..actual_seq_len, ..actual_k_seq_len))?
+                .i((..actual_seq_len, ..actual_seq_len))?
                 .broadcast_as(Shape::from(weight.shape()))?
                 .where_cond(
                     &weight,
