@@ -63,7 +63,7 @@ impl MultiHeadAttention {
         }
         
         // 将所有头的q、k、v合并为一个张量
-        let q = Tensor::cat(&all_q, D::Minus1)?.reshape((batch_size, seq_len, self.heads.len(), self.head_size))?
+        let q: Tensor = Tensor::cat(&all_q, D::Minus1)?.reshape((batch_size, seq_len, self.heads.len(), self.head_size))?
             .permute((0, 2, 1, 3))?; // [batch, n_head, seq_len, head_size]
         let k = Tensor::cat(&all_k, D::Minus1)?.reshape((batch_size, seq_len, self.heads.len(), self.head_size))?
             .permute((0, 2, 1, 3))?;
