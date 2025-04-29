@@ -1,5 +1,5 @@
 use candle_core::{IndexOp, Result, Tensor};
-use log::info;
+use log::{debug, info};
 use rand::rngs::ThreadRng;
 use rand::Rng;
 
@@ -59,8 +59,23 @@ impl Dataset {
     // 计算总共可能的训练窗口数量
     pub fn get_total_training_windows(&self, context_size: usize) -> Result<usize> {
         let total_tokens = self.training_data.shape().dims1()?;
-        info!("total tokens is {}", total_tokens);
-        Ok(total_tokens - context_size + 1)
+        info!("总token数量: {}", total_tokens);
+        
+        // 如果训练数据长度小于context_size，则使用整个训练数据
+        let actual_context_size = if total_tokens <= context_size {
+            // 至少需要留一个token作为目标
+            if total_tokens > 1 {
+                total_tokens - 1
+            } else {
+                // 数据太短，无法形成有效的训练窗口
+                return Ok(0);
+            }
+        } else {
+            context_size
+        };
+        
+        debug!("use context size: {}", actual_context_size);
+        Ok(total_tokens - actual_context_size + 1)
     }
 
     // 获取连续的训练batch
@@ -72,15 +87,31 @@ impl Dataset {
     ) -> Result<Option<(Tensor, Tensor)>> {
         let mut input_indices: Vec<Tensor> = Vec::with_capacity(batch_size);
         let mut target_indices: Vec<Tensor> = Vec::with_capacity(batch_size);
-        // let mut input_indices_tensor = Tensor::zeros((batch_size, context_size), DType::I32)?;
-        // let mut target_indices_tensor = Tensor::zeros((batch_size, context_size), DType::I32)?;
+        
+        // 获取训练数据的实际长度
+        let total_tokens = self.training_data.shape().dims1()?;
+        
+        // 如果训练数据长度小于context_size，则使用整个训练数据
+        let actual_context_size = if total_tokens <= context_size {
+            total_tokens - 1  // 至少需要留一个token作为目标
+        } else {
+            context_size
+        };
+        
+        // 如果训练数据太短，甚至不足以形成一个训练样本，则返回None
+        if actual_context_size < 2 {
+            debug!("training data is too short, cannot form a valid training sample");
+            return Ok(None);
+        }
+        
+        debug!("use context size: {}", actual_context_size);
 
         for i in 0..batch_size {
             let window_start = start_idx + i;
-            let window_end = window_start + context_size;
+            let window_end = window_start + actual_context_size;
 
             // 确保不会超出训练数据范围
-            if window_end >= self.training_data.shape().dims1()? {
+            if window_end >= total_tokens {
                 break;
             }
 

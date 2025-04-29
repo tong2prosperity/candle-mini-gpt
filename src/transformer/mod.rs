@@ -14,10 +14,10 @@ use anyhow::Result;
 const MAX_ITERS: usize = 1000;
 
 const BATCH_SIZE: usize = 12;
-const CONTEXT_SIZE: usize = 7;
+const CONTEXT_SIZE: usize = 64;
 
 const LEARNING_RATE: f32 = 3e-4;
-const N_VOCAB: usize = 11;
+const N_VOCAB: usize = 22;
 const N_EMBED: usize = 32;
 const N_HEAD: usize = 4;
 const N_LAYER: usize = 4;

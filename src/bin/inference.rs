@@ -40,10 +40,22 @@ pub fn main() -> Result<()> {
         Config::new(true, device)
     };
     
-    let GPT = GPTModel::load(&config, "./gpt_model.safetensors", tokenizer)?;
+    let gpt = GPTModel::load(&config, "./gpt_model.safetensors", tokenizer)?;
 
-    let result = GPT.generate("你不拿", 5, 0.1)?;
-    println!("result: {}", result);
+    // 默认使用KV缓存的方式生成
+    let input = "你不拿";
+    let max_tokens = 20;
+    let temperature = 0.1;
+    
+    println!("输入: {}", input);
+    
+    // 使用带KV缓存的生成方法
+    let result = gpt.generate(input, max_tokens, temperature)?;
+    println!("带KV缓存生成结果: {}", result);
+    
+    // 对比无缓存的生成方法
+    let result_no_cache = gpt.generate_no_cache(input, max_tokens, temperature)?;
+    println!("无KV缓存生成结果: {}", result_no_cache);
 
     Ok(())
 }

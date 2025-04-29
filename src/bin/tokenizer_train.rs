@@ -95,14 +95,13 @@ mod test {
 
 fn main() -> Result<()> {
     // 初始化 BPE trainer
-
     let mut trainer = BpeTrainerBuilder::new()
         .show_progress(true)
-        .vocab_size(11)
-        .min_frequency(0)
+        .vocab_size(22)
+        .min_frequency(2)
         .special_tokens(vec![
-            AddedToken::from(String::from("<bos>"), true),
-            AddedToken::from(String::from("<eos>"), true),
+            AddedToken::from(String::from("<s>"), true),
+            AddedToken::from(String::from("</s>"), true),
             AddedToken::from(String::from("<unk>"), true),
         ])
         .build();
@@ -134,7 +133,7 @@ fn main() -> Result<()> {
     let mut files = collect_txt_files("res/articles");
 
     files.clear();
-    files.push("res/articles/pretrain.txt".to_string());
+    files.push("res/articles/tokenizer_train.txt".to_string());
     println!("files: {:?}", files);
 
     // 训练模型

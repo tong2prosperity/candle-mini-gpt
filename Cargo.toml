@@ -6,8 +6,7 @@ edition = "2021"
 [lib]
 name = "candle_mini_gpt"
 
-[toolchain]
-channel = "nightly"
+
 [[bin]]
 name = "hello_ml"
 path = "src/bin/hello_ml.rs"

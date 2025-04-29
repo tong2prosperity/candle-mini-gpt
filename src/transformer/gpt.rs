@@ -148,7 +148,12 @@ impl GPTModel {
 
         // 获取所有可能的训练窗口
         let total_windows = dataset.get_total_training_windows(self.cfg.n_ctx)?;
-        info!("Total training windows: {}", total_windows);
+        info!("可训练窗口总数: {}", total_windows);
+        
+        if total_windows == 0 {
+            error!("没有足够的训练数据，无法进行训练");
+            return Ok(());
+        }
 
         for epoch in 0..num_epochs {
             // 检查是否需要停止训练
@@ -165,24 +170,26 @@ impl GPTModel {
             for batch_idx in (0..total_windows).step_by(batch_size) {
                 // 再次检查是否需要停止训练
                 if !running.load(Ordering::SeqCst) {
-                    info!("收到停止信号,当前batch训练完成后结束");
+                    info!("receive stop signal, end training");
                     return Ok(());
                 }
 
                 let actual_batch_size = batch_size.min(total_windows - batch_idx);
-                info!("actual_batch_size: {}", actual_batch_size);
+                
                 let (training_inputs, training_targets) = match dataset
                     .get_sequential_training_batch(batch_idx, actual_batch_size, self.cfg.n_ctx)
                 {
                     Ok(Some(result)) => result,
                     Ok(None) => {
+                        info!("skip this batch");
                         continue;
                     }
                     Err(e) => {
-                        error!("Error getting sequential training batch: {:?}", e);
+                        error!("error when get training batch: {:?}", e);
                         continue;
                     }
                 };
+                
 
                 let logits = self.forward(&training_inputs)?;
                 let (batch_size, context_size, embedding_size) = logits.shape().dims3()?;
@@ -195,17 +202,7 @@ impl GPTModel {
                 let loss_val = loss.to_scalar::<f32>()?;
                 epoch_loss += loss_val;
                 batch_count += 1;
-
-                // if batch_idx % 100 == 0 {
-                //     info!(
-                //         "Epoch {}/{} Batch {}/{} Loss: {}",
-                //         epoch + 1,
-                //         num_epochs,
-                //         batch_idx,
-                //         total_windows,
-                //         loss_val
-                //     );
-                // }
+                
             }
 
             // 每个epoch结束后输出平均损失
@@ -253,6 +250,13 @@ impl GPTModel {
         let next_token = logits_processor.sample(&next_token_logits)?;
         tokens.push(next_token);
         
+        // 检查是否为EOS
+        if next_token == 1 { // </s>的token ID是1
+            info!("detect EOS, end generation");
+            let decoded = self.tokenizer.decode(tokens.as_slice(), true).unwrap();
+            return Ok(decoded);
+        }
+        
         // 继续生成剩余的token
         for _ in 1..max_new_tokens {
             // 只处理最后一个token
@@ -273,6 +277,12 @@ impl GPTModel {
             let next_token_logits = logits.get(0)?;  // 因为只输入了一个token，所以索引为0
             let next_token = logits_processor.sample(&next_token_logits)?;
             tokens.push(next_token);
+            
+            // 检查是否为EOS
+            if next_token == 1 { // </s>的token ID是1
+                info!("detect EOS, end generation");
+                break;
+            }
         }
         
         let decoded = self.tokenizer.decode(tokens.as_slice(), true).unwrap();
@@ -304,6 +314,12 @@ impl GPTModel {
             info!("Token: {:?}", next_token);
             tokens.push(next_token);
             generated_tokens += 1;
+            
+            // 检查是否为EOS
+            if next_token == 1 { // </s>的token ID是1
+                info!("detect EOS, end generation");
+                break;
+            }
         }
         
         info!("generated_tokens without cache: {}", generated_tokens);
