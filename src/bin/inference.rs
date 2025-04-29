@@ -45,7 +45,7 @@ pub fn main() -> Result<()> {
     // 默认使用KV缓存的方式生成
     let input = "你不拿";
     let max_tokens = 20;
-    let temperature = 0.1;
+    let temperature = 0.01;
     
     println!("输入: {}", input);
     

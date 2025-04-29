@@ -16,7 +16,7 @@ use candle_mini_gpt::{
 use chrono::Local;
 use ctrlc;
 use env_logger::{Builder, WriteStyle};
-use log::{error, info};
+use log::{debug, error, info};
 use tokenizers;
 
 fn load_file(path: &String) -> anyhow::Result<String> {
@@ -40,7 +40,7 @@ pub fn main() -> Result<()> {
             )
         })
         .write_style(WriteStyle::Always)
-        .filter_level(log::LevelFilter::Info)
+        //.filter_level(log::LevelFilter::Info)
         .init();
 
     let running = Arc::new(AtomicBool::new(true));
@@ -59,8 +59,8 @@ pub fn main() -> Result<()> {
         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         {
             if utils::metal_is_available() {
-                Device::new_metal(0)?
-                //Device::Cpu
+                //Device::new_metal(0)?
+                Device::Cpu
             } else {
                 Device::Cpu
             }
@@ -76,23 +76,25 @@ pub fn main() -> Result<()> {
     };
 
     // try load config from file if failed new a config
-    let config = if let Ok(config) = Config::load("config.json", device.clone()) {
+    let mut config = if let Ok(config) = Config::load("config.json", device.clone()) {
         config
     } else {
         Config::new(true, device.clone())
     };
 
+    config.training = true;
+
     let mut dataset = load_dataset(&tokenizer, &config.device)?;
 
-    let GPT = GPTModel::new(&config, &config.device, tokenizer)?;
+    let mut gpt = GPTModel::new(&config, &config.device, tokenizer)?;
 
-    train_model(&GPT, &mut dataset, &config, running)?;
+    train_model(gpt, &mut dataset, &config, running)?;
 
     Ok(())
 }
 
 fn train_model(
-    gpt: &GPTModel,
+    mut gpt: GPTModel,
     dataset: &mut Dataset,
     config: &Config,
     running: Arc<AtomicBool>,
@@ -100,7 +102,7 @@ fn train_model(
     info!("开始训练模型...");
 
     while running.load(Ordering::SeqCst) {
-        match gpt.train(dataset, 1000, 1, &running) {
+        match gpt.train(dataset, 1, 1, &running) {
             Ok(_) => {
                 info!("训练完成一个周期");
                 config.save(&Path::new("config.json"))?;
@@ -125,6 +127,7 @@ fn train_model(
 fn load_dataset(tokenizer: &tokenizers::Tokenizer, device: &Device) -> Result<Dataset> {
     let text = load_file(&"./res/articles/pretrain.txt".to_string())?;
     let encoded = tokenizer.encode(text, true).unwrap();
+    debug!("after encoding dataset is {:?}", encoded.get_ids());
 
     let data = Tensor::from_slice(encoded.get_ids(), Shape::from(encoded.len()), device).unwrap();
     let dataset = Dataset::new(data, 1.0);

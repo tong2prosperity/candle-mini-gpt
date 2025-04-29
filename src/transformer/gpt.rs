@@ -22,7 +22,7 @@ pub struct Block {
     self_attn: MultiHeadAttention,
     feed_forward: FeedForward,
     ln1: LayerNorm,
-    ln2: LayerNorm,
+    ln2: LayerNorm, 
     cfg: Config,
 }
 
@@ -74,6 +74,7 @@ pub struct GPTModel {
     cfg: Config,
     var_map: Option<VarMap>,
     tokenizer: Tokenizer,
+    optimizer: Option<AdamW>,
     kv_cache: Option<Vec<(Tensor, Tensor)>>,
 }
 
@@ -104,6 +105,13 @@ impl GPTModel {
         let ln_f = layer_norm(cfg.n_embd, LayerNormConfig::from(1e-5), vb.pp("ln_f"))?;
         let lm_head = linear(cfg.n_embd, cfg.n_vocab, vb.pp("lm_head"))?;
 
+        let mut optimizer = None;
+        if cfg.training {
+            let opt = AdamW::new(var_map.as_ref().unwrap().all_vars(), ParamsAdamW::default())?;
+            optimizer = Some(opt);
+        }
+
+
         Ok(Self {
             token_embedding,
             blocks,
@@ -112,6 +120,7 @@ impl GPTModel {
             cfg: cfg.clone(),
             var_map,
             tokenizer,
+            optimizer,
             kv_cache: None,
         })
     }
@@ -132,7 +141,7 @@ impl GPTModel {
     }
 
     pub fn train(
-        &self,
+        &mut self,
         dataset: &mut Dataset,
         num_epochs: usize,
         batch_size: usize,
@@ -142,12 +151,10 @@ impl GPTModel {
             "var_map parameters size: {:?}",
             self.var_map.as_ref().unwrap().all_vars().len()
         );
-        let mut paramAdam = ParamsAdamW::default();
-        paramAdam.lr = 0.001;
-        let mut optimizer = AdamW::new(self.var_map.as_ref().unwrap().all_vars(), paramAdam)?;
 
         // 获取所有可能的训练窗口
         let total_windows = dataset.get_total_training_windows(self.cfg.n_ctx)?;
+        let mut optimizer = self.optimizer.take().unwrap();
         info!("可训练窗口总数: {}", total_windows);
         
         if total_windows == 0 {
@@ -223,6 +230,7 @@ impl GPTModel {
                 // }
             }
         }
+        self.optimizer = Some(optimizer);
         Ok(())
     }
 

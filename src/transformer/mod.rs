@@ -77,7 +77,7 @@ impl Config {
             n_head: config.n_head,
             n_ctx: config.n_ctx,
             dropout: config.dropout,
-            training: config.training,
+            training: false,
             device: dev,
             max_position_embeddings: config.max_position_embeddings,
             rope_theta: config.rope_theta,
