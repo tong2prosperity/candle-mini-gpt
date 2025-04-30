@@ -155,17 +155,17 @@ impl GPTModel {
         // 获取所有可能的训练窗口
         let total_windows = dataset.get_total_training_windows(self.cfg.n_ctx)?;
         let mut optimizer = self.optimizer.take().unwrap();
-        info!("可训练窗口总数: {}", total_windows);
+        info!("total training windows: {}", total_windows);
         
         if total_windows == 0 {
-            error!("没有足够的训练数据，无法进行训练");
+            error!("no enough training data");
             return Ok(());
         }
 
         for epoch in 0..num_epochs {
             // 检查是否需要停止训练
             if !running.load(Ordering::SeqCst) {
-                info!("收到停止信号,训练提前结束");
+                info!("receive stop signal, end training");
                 break;
             }
 
@@ -245,7 +245,7 @@ impl GPTModel {
         
         // 初始化KV缓存
         let mut kv_cache: Option<Vec<(Tensor, Tensor)>> = None;
-        let mut logits_processor = LogitsProcessor::new(0, Some(temperature), Some(0.6));
+        let mut logits_processor = LogitsProcessor::new(0, Some(temperature), Some(0.7));
 
         // 首次处理完整输入序列
         let input_tensor = Tensor::new(tokens.as_slice(), &self.cfg.device)?.unsqueeze(0)?;

@@ -1,6 +1,7 @@
 {
   "version": "0.2.0",
   "configurations": [
+
     {
       "type": "lldb",
       "request": "launch",
@@ -89,6 +90,20 @@
         "args": ["build", "--bin=trainer", "--package=candle-mini-gpt"],
         "filter": {
           "name": "trainer",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'inference'",
+      "cargo": {
+        "args": ["build", "--bin=infer", "--package=candle-mini-gpt"],
+        "filter": {
+          "name": "infer",
           "kind": "bin"
         }
       },

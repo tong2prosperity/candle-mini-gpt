@@ -18,8 +18,8 @@ pub fn main() -> Result<()> {
         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         {
             if utils::metal_is_available() {
-                //Device::new_metal(0)?
-                Device::Cpu
+                Device::new_metal(0)?
+                //Device::Cpu
             } else {
                 Device::Cpu
             }
@@ -34,18 +34,20 @@ pub fn main() -> Result<()> {
         }
     };
 
-    let config = if Path::new("./config.json").exists() {
+    let mut config = if Path::new("./config.json").exists() {
         Config::load("config.json", device)?
     } else {
         Config::new(true, device)
     };
+
+    config.training = false;
     
     let gpt = GPTModel::load(&config, "./gpt_model.safetensors", tokenizer)?;
 
     // 默认使用KV缓存的方式生成
-    let input = "你不拿";
+    let input = "<s>你不拿,我";
     let max_tokens = 20;
-    let temperature = 0.01;
+    let temperature = 0.1;
     
     println!("输入: {}", input);
     

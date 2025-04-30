@@ -59,8 +59,8 @@ pub fn main() -> Result<()> {
         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         {
             if utils::metal_is_available() {
-                //Device::new_metal(0)?
-                Device::Cpu
+                Device::new_metal(0)?
+                //Device::Cpu
             } else {
                 Device::Cpu
             }
@@ -102,7 +102,7 @@ fn train_model(
     info!("开始训练模型...");
 
     while running.load(Ordering::SeqCst) {
-        match gpt.train(dataset, 1, 1, &running) {
+        match gpt.train(dataset, 10000, 1, &running) {
             Ok(_) => {
                 info!("训练完成一个周期");
                 config.save(&Path::new("config.json"))?;

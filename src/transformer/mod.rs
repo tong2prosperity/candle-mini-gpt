@@ -19,8 +19,8 @@ const CONTEXT_SIZE: usize = 64;
 const LEARNING_RATE: f32 = 3e-4;
 const N_VOCAB: usize = 22;
 const N_EMBED: usize = 32;
-const N_HEAD: usize = 4;
-const N_LAYER: usize = 4;
+const N_HEAD: usize = 8;
+const N_LAYER: usize = 6;
 const DROPOUT: f32 = 0.1;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
