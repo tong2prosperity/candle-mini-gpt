@@ -11,7 +11,7 @@ name = "tokenizer_train"
 path = "src/bin/tokenizer_train.rs"
 
 [[bin]]
-name = "trainer"
+name = "train"
 path = "src/bin/model_trainer.rs"
 
 [[bin]]
