@@ -1,5 +1,5 @@
-use candle_core::{DType, Device, IndexOp, Module, Result, Shape, Tensor, D};
-use candle_nn::{linear, linear_no_bias, Linear, VarBuilder};
+use candle_core::{DType, IndexOp, Module, Result, Shape, Tensor, D};
+use candle_nn::{linear_no_bias, Linear, VarBuilder};
 use log::debug;
 
 use super::Config;
@@ -10,10 +10,8 @@ pub struct Head {
     value: Linear,
     scale: f64,
     tril: Tensor, // lower triangular mask
-    dropout_p: f64,
     training: bool,
     neg_inf: Tensor,
-    head_size: usize,
 }
 
 impl Head {
@@ -33,10 +31,8 @@ impl Head {
             value,
             scale: (head_size as f64).powf(-0.5),
             tril,
-            dropout_p: cfg.dropout as f64,
             training: false,
             neg_inf,
-            head_size,
         })
     }
 

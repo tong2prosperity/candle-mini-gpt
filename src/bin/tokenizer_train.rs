@@ -1,11 +1,11 @@
 use anyhow::Result;
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
-use tokenizers::models::bpe::{BpeTrainer, BpeTrainerBuilder, BPE};
-use tokenizers::normalizers::{Sequence, Strip, NFC, NFKC};
+
+use tokenizers::models::bpe::{BpeTrainerBuilder, BPE};
+use tokenizers::normalizers::{Sequence, Strip, NFKC};
 use tokenizers::pre_tokenizers::byte_level::ByteLevel;
 use tokenizers::pre_tokenizers::delimiter::CharDelimiterSplit;
-use tokenizers::tokenizer::{Tokenizer, TokenizerBuilder};
+use tokenizers::tokenizer::TokenizerBuilder;
 use tokenizers::AddedToken;
 
 use std::fs;
@@ -85,7 +85,7 @@ mod test {
         let simplified = opencc.convert(&content);
 
         // 输出到新文件（添加.simplified后缀）
-        let path = Path::new(file_path);
+        let path = std::path::Path::new(file_path);
         let new_path = path.with_extension("simplified.txt");
         fs::write(&new_path, simplified).unwrap();
 

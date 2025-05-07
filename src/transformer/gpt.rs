@@ -8,7 +8,7 @@ use candle_nn::{
     LayerNormConfig, Optimizer as _, ParamsAdamW, VarBuilder, VarMap,
 };
 use candle_transformers::generation::LogitsProcessor;
-use log::{debug, error, info};
+use log::{error, info};
 use std::{
     path::Path,
     sync::{
@@ -23,7 +23,7 @@ pub struct Block {
     feed_forward: FeedForward,
     ln1: LayerNorm,
     ln2: LayerNorm, 
-    cfg: Config,
+
 }
 
 impl Block {
@@ -38,7 +38,6 @@ impl Block {
             feed_forward,
             ln1,
             ln2,
-            cfg: cfg.clone(),
         })
     }
 
@@ -75,7 +74,6 @@ pub struct GPTModel {
     var_map: Option<VarMap>,
     tokenizer: Tokenizer,
     optimizer: Option<AdamW>,
-    kv_cache: Option<Vec<(Tensor, Tensor)>>,
 }
 
 impl GPTModel {
@@ -121,7 +119,6 @@ impl GPTModel {
             var_map,
             tokenizer,
             optimizer,
-            kv_cache: None,
         })
     }
 

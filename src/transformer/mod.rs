@@ -6,14 +6,11 @@ pub mod rotary_emb;
 
 use std::{fs::File, path};
 
-use candle_core::{DType, Device, IndexOp, Module, Shape, Tensor, D};
+use candle_core::{Device, Module, Tensor};
 use candle_nn::{Linear, VarBuilder};
 use serde::{Deserialize, Serialize};
 
 use anyhow::Result;
-const MAX_ITERS: usize = 1000;
-
-const BATCH_SIZE: usize = 12;
 const CONTEXT_SIZE: usize = 64;
 
 const LEARNING_RATE: f32 = 3e-4;

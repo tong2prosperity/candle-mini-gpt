@@ -1,6 +1,5 @@
 use anyhow::Result;
-use log::info;
-use std::{fs::File, io::Read, path::Path};
+use std::{fs::File, io::Read};
 use tokenizers;
 
 fn load_file(path: &String) -> anyhow::Result<String> {

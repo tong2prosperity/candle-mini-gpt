@@ -8,7 +8,6 @@ use super::rotary_emb::RotaryEmbedding;
 pub struct MultiHeadAttention {
     heads: Vec<Head>,
     proj: Linear,
-    dropout_p: f64,
     training: bool,
     rotary_emb: Option<RotaryEmbedding>,
     head_size: usize,
@@ -32,7 +31,6 @@ impl MultiHeadAttention {
         Ok(Self {
             heads,
             proj,
-            dropout_p: cfg.dropout as f64,
             training: false,
             rotary_emb,
             head_size,

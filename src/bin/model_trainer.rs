@@ -86,7 +86,7 @@ pub fn main() -> Result<()> {
 
     let mut dataset = load_dataset(&tokenizer, &config.device)?;
 
-    let mut gpt = GPTModel::new(&config, &config.device, tokenizer)?;
+    let gpt = GPTModel::new(&config, &config.device, tokenizer)?;
 
     train_model(gpt, &mut dataset, &config, running)?;
 

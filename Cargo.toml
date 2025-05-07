@@ -6,11 +6,6 @@ edition = "2021"
 [lib]
 name = "candle_mini_gpt"
 
-
-[[bin]]
-name = "hello_ml"
-path = "src/bin/hello_ml.rs"
-
 [[bin]]
 name = "tokenizer_train"
 path = "src/bin/tokenizer_train.rs"

@@ -19,7 +19,7 @@ impl Dataset {
         let validation_size = data_size - training_size;
         let validation_data = data.i(training_size..data_size).unwrap();
 
-        let rng: ThreadRng = rand::thread_rng();
+        let rng: ThreadRng = rand::rng();
 
         Self {
             training_data,
@@ -36,7 +36,7 @@ impl Dataset {
         batch_size: usize,
     ) -> Result<(Tensor, Tensor)> {
         let max_block_indices: Vec<usize> = (0..batch_size)
-            .map(|_| self.rng.gen_range(0..self.training_size - block_size))
+            .map(|_| self.rng.random_range(0..self.training_size - block_size))
             .collect();
 
         let context_rows = max_block_indices.iter().map(|&max_index| {

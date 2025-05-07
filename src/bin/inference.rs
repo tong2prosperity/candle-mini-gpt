@@ -1,11 +1,8 @@
-use std::{fs::File, io::Read, path::Path};
+use std::path::Path;
 
 use anyhow::Result;
-use candle_core::{utils, Device, Shape, Tensor};
-use candle_mini_gpt::{
-    data::Dataset,
-    transformer::{gpt::GPTModel, Config},
-};
+use candle_core::{utils, Device};
+use candle_mini_gpt::transformer::{gpt::GPTModel, Config};
 use tokenizers;
 
 pub fn main() -> Result<()> {
