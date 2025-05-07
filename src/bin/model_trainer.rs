@@ -102,7 +102,7 @@ fn train_model(
     info!("开始训练模型...");
 
     while running.load(Ordering::SeqCst) {
-        match gpt.train(dataset, 10000, 1, &running) {
+        match gpt.train(dataset, 1000, 1, &running) {
             Ok(_) => {
                 info!("训练完成一个周期");
                 config.save(&Path::new("config.json"))?;

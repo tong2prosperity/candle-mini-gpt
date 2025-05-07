@@ -43,18 +43,22 @@ pub fn main() -> Result<()> {
 
     // 默认使用KV缓存的方式生成
     let input = "<s>你不拿,我";
-    let max_tokens = 20;
+    let max_tokens = 30;
     let temperature = 0.1;
     
     println!("输入: {}", input);
     
     // 使用带KV缓存的生成方法
+    let start = std::time::Instant::now();
     let result = gpt.generate(input, max_tokens, temperature)?;
-    println!("带KV缓存生成结果: {}", result);
+    let elapsed = start.elapsed();
+    println!("带KV缓存生成结果: {}\nelapsed: {:?}", result, elapsed);
     
     // 对比无缓存的生成方法
+    let start_no_cache = std::time::Instant::now();
     let result_no_cache = gpt.generate_no_cache(input, max_tokens, temperature)?;
-    println!("无KV缓存生成结果: {}", result_no_cache);
+    let elapsed_no_cache = start_no_cache.elapsed();
+    println!("无KV缓存生成结果: {}\nelapsed: {:?}", result_no_cache, elapsed_no_cache);
 
     Ok(())
 }
