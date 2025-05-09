@@ -1,10 +1,14 @@
-# Rust Transformer
+# Rust Transformer 
 
-一个用Rust语言实现的Transformer模型，具有GPT风格的架构，支持训练和推理功能。
+<img src="pics/head.jpg" width="200">
+
+一个用Rust语言实现的Transformer模型，类GPT架构，支持训练和推理功能。
+###  **可以训练复杂的模型，但没必要，只训练模型说一句话，就是那句话。**
 
 ## 项目概述
 
-该项目是一个轻量级的Transformer实现，使用Rust语言编写，并基于[candle](https://github.com/huggingface/candle)深度学习框架。项目提供了一个完整的GPT模型实现，包括模型训练、文本生成和分词器训练等功能。
+轻量级的Transformer实现，使用Rust语言编写，并基于[candle](https://github.com/huggingface/candle)深度学习框架。项目提供了一个完整的GPT模型实现，包括模型训练、文本生成和分词器训练等功能。
+
 
 ## 项目结构
 
@@ -13,7 +17,6 @@ src/
 ├── bin/                    # 可执行文件
 │   ├── inference.rs        # 模型推理程序
 │   ├── model_trainer.rs    # 模型训练程序
-│   ├── token_counter.rs    # 词元计数工具
 │   └── tokenizer_train.rs  # 分词器训练程序
 ├── data.rs                 # 数据集处理
 ├── lib.rs                  # 库入口
@@ -104,7 +107,7 @@ cargo run --bin inference
 
 ```rust
 let GPT = GPTModel::load(&config, "./gpt_model.safetensors", tokenizer)?;
-let result = GPT.generate("你不拿", 5, 0.1)?;
+let result = GPT.generate("你不拿,", 30, 0.1)?; // 默认带kvcache
 println!("result: {}", result);
 ```
 
