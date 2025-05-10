@@ -42,7 +42,7 @@ pub fn main() -> Result<()> {
     let gpt = GPTModel::load(&config, "./gpt_model.safetensors", tokenizer)?;
 
     // 默认使用KV缓存的方式生成
-    let input = "<s>你不拿,我";
+    let input = "<s>你不拿,";
     let max_tokens = 30;
     let temperature = 0.1;
     
