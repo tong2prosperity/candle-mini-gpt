@@ -20,3 +20,13 @@ target/
 
 config.json
 gpt_model.safetensors
+
+
+.cursor/
+
+.idea/
+
+.vscode/
+
+res/articles/super_magical_emperior.txt
+**/.DS_Store
